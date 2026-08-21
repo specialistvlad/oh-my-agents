@@ -41,3 +41,7 @@ sees the `VITE_`-prefixed values.
 
 CI runs the same gates, minus the component tests, which need infrastructure a
 runner does not have.
+
+## License
+
+[MIT](LICENSE) © Vladyslav Kazantsev
