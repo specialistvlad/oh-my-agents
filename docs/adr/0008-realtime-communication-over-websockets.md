@@ -1,6 +1,6 @@
 # ADR-0008: Clients talk over one bidirectional WebSocket, scoped by rooms
 
-- Status: Accepted
+- Status: Accepted; room addressing is superseded by ADR-0009
 - Date: 2026-08-21
 - Scope: `services/api`, `services/web`
 - Relates to: ADR-0002, ADR-0004, ADR-0005

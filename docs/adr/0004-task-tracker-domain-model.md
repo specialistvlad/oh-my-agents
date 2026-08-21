@@ -1,6 +1,6 @@
 # ADR-0004: The task tracker is one generic item type with a runtime schema
 
-- Status: Accepted
+- Status: Accepted; the schema-key part is superseded by ADR-0009
 - Date: 2026-08-21
 - Scope: `services/api/internal/tracker`
 - Relates to: ADR-0002, ADR-0003
