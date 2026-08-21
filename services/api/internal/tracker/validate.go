@@ -17,6 +17,18 @@ type Validator interface {
 	Validate() error
 }
 
+// Every level of the schema implements it. The assertions are here so that a
+// level losing its Validate method breaks the build rather than quietly
+// dropping out of the recursion.
+var (
+	_ Validator = Schema{}
+	_ Validator = ItemType{}
+	_ Validator = FieldDef{}
+	_ Validator = Status{}
+	_ Validator = Transition{}
+	_ Validator = Option{}
+)
+
 // Schema is the whole configuration: every [ItemType] the tracker knows.
 // It is the root of the validation tree and the authority content rules are
 // checked against.

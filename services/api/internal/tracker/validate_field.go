@@ -35,8 +35,8 @@ func (f FieldDef) validateOptions() error {
 	}
 	seen := make(map[OptionKey]struct{}, len(f.Options))
 	for _, o := range f.Options {
-		if o.Key == "" || o.Name == "" {
-			return fmt.Errorf("%w: field %q has an option missing a key or name", ErrInvalidSchema, f.Key)
+		if err := o.Validate(); err != nil {
+			return fmt.Errorf("field %q: %w", f.Key, err)
 		}
 		if _, dup := seen[o.Key]; dup {
 			return fmt.Errorf("%w: field %q declares option %q twice", ErrInvalidSchema, f.Key, o.Key)
@@ -100,4 +100,12 @@ func (k FieldKind) valid() bool {
 	default:
 		return false
 	}
+}
+
+// Validate checks the option is nameable and addressable.
+func (o Option) Validate() error {
+	if o.Key == "" || o.Name == "" {
+		return fmt.Errorf("%w: option %q needs a key and a name", ErrInvalidSchema, o.Key)
+	}
+	return nil
 }

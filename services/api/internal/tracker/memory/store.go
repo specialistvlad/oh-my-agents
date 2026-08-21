@@ -9,6 +9,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/tracker"
@@ -82,7 +83,7 @@ func (s *Store) PutItemType(ctx context.Context, t tracker.ItemType) error {
 			next.Types = append(next.Types, existing)
 		}
 	}
-	next.Types = append(next.Types, t)
+	next.Types = append(next.Types, cloneType(t))
 
 	for _, item := range s.items {
 		if item.Type != t.Key {
@@ -125,10 +126,36 @@ func (s *Store) DeleteItemType(ctx context.Context, key tracker.TypeKey) error {
 	return nil
 }
 
-// cloneSchema copies enough that a caller cannot reach into the store's own
-// slices. Callers hold the read lock.
+// cloneSchema deep-copies the configuration. Copying only the outer slice
+// would leave every type's fields, statuses and transitions shared with the
+// store, so a caller could rewrite the schema through a value it was handed.
+// Callers hold the read lock.
 func (s *Store) cloneSchema() tracker.Schema {
-	out := tracker.Schema{Types: make([]tracker.ItemType, len(s.schema.Types))}
-	copy(out.Types, s.schema.Types)
+	out := tracker.Schema{Types: make([]tracker.ItemType, 0, len(s.schema.Types))}
+	for _, t := range s.schema.Types {
+		out.Types = append(out.Types, cloneType(t))
+	}
+	return out
+}
+
+// cloneType copies a type and everything hanging off it.
+func cloneType(t tracker.ItemType) tracker.ItemType {
+	out := t
+	out.Fields = make([]tracker.FieldDef, 0, len(t.Fields))
+	for _, f := range t.Fields {
+		f.Options = slices.Clone(f.Options)
+		f.ItemTypes = slices.Clone(f.ItemTypes)
+		if f.Default != nil {
+			def := *f.Default
+			f.Default = &def
+		}
+		out.Fields = append(out.Fields, f)
+	}
+	out.Statuses = slices.Clone(t.Statuses)
+	out.Transitions = make([]tracker.Transition, 0, len(t.Transitions))
+	for _, tr := range t.Transitions {
+		tr.RequiredFields = slices.Clone(tr.RequiredFields)
+		out.Transitions = append(out.Transitions, tr)
+	}
 	return out
 }

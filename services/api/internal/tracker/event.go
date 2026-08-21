@@ -35,6 +35,9 @@ const (
 	EventStatusChanged EventKind = "status_changed"
 	// EventParentChanged is a reparenting, which moves a whole subtree.
 	EventParentChanged EventKind = "parent_changed"
+	// EventItemDeleted is a removed item. A reader that never sees this
+	// cannot tell a deletion from an item it simply has not heard about.
+	EventItemDeleted EventKind = "item_deleted"
 	// EventCommentAdded is a new comment.
 	EventCommentAdded EventKind = "comment_added"
 	// EventCommentEdited is an edited comment.

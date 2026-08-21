@@ -11,9 +11,10 @@ package tracker
 // that is entirely its own business, and the two obvious backends do it
 // completely differently:
 //
-//   - A filesystem knows nothing about item types, statuses or trees. The
-//     filesystem adapter therefore implements every check itself, in Go, and
-//     [Validator] exists so it does not have to write the schema half by hand.
+//   - A filesystem knows nothing about item types, statuses or trees. Such an
+//     adapter implements every check itself, in Go, and [Validator] plus
+//     [Schema.ValidateItem] exist so it need not write the schema half by
+//     hand. The memory package does exactly this.
 //   - A SQL database already enforces this kind of thing for a living.
 //     The SQL adapter is expected to push the invariants down into the schema
 //     — foreign keys, check constraints, a status-transition table, a trigger
@@ -55,7 +56,9 @@ package tracker
 // pass. The filesystem store and the SQL store prove the same guarantees by
 // different means, and the suite is what says so.
 //
-// The suite does not exist yet. Neither does either adapter.
+// That suite is trackertest, and the memory package is the first store held
+// to it. No durable adapter exists yet: the filesystem store is next, and a
+// SQL store after it.
 //
 // # Store versus the ports
 //

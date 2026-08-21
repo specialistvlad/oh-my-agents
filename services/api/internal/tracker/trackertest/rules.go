@@ -46,7 +46,7 @@ func runVersioning(t *testing.T, newStore Factory) {
 	t.Run("refuses a stale delete", func(t *testing.T) {
 		s, ctx := fixture(t, newStore)
 		item := create(t, s, tracker.NewItem{})
-		if err := s.DeleteItem(ctx, item.ID, item.Version+1); !errors.Is(err, tracker.ErrVersionConflict) {
+		if err := s.DeleteItem(ctx, item.ID, item.Version+1, human("vk")); !errors.Is(err, tracker.ErrVersionConflict) {
 			t.Errorf("DeleteItem = %v, want ErrVersionConflict", err)
 		}
 	})

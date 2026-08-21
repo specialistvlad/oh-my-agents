@@ -2,6 +2,7 @@ package trackertest
 
 import (
 	"testing"
+	"time"
 
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/tracker"
 )
@@ -48,6 +49,94 @@ func runIsolation(t *testing.T, newStore Factory) {
 		}
 		if summary, _ := got.Fields["summary"].String(); summary != "original" {
 			t.Errorf("summary = %q; the store kept the caller's map", summary)
+		}
+	})
+
+	t.Run("does not hand out its own schema", func(t *testing.T) {
+		s, ctx := fixture(t, newStore)
+		schema, err := s.Schema(ctx)
+		if err != nil {
+			t.Fatalf("Schema: %v", err)
+		}
+		typ, ok := schema.Type("bug")
+		if !ok || len(typ.Fields) == 0 || len(typ.Statuses) == 0 {
+			t.Fatalf("Schema returned an empty type: %+v", typ)
+		}
+		typ.Fields[0].Name = "tampered"
+		typ.Statuses[0].Name = "tampered"
+
+		again, err := s.Schema(ctx)
+		if err != nil {
+			t.Fatalf("Schema: %v", err)
+		}
+		fresh, _ := again.Type("bug")
+		if fresh.Fields[0].Name == "tampered" || fresh.Statuses[0].Name == "tampered" {
+			t.Error("mutating a returned schema reached the store")
+		}
+	})
+
+	t.Run("does not alias comment pointers", func(t *testing.T) {
+		s, ctx := fixture(t, newStore)
+		item := create(t, s, tracker.NewItem{})
+		posted, err := s.AddComment(ctx, tracker.NewComment{Item: item.ID, Body: "a"})
+		if err != nil {
+			t.Fatalf("AddComment: %v", err)
+		}
+		edited, err := s.EditComment(ctx, posted.ID, posted.Version, "b", human("vk"))
+		if err != nil {
+			t.Fatalf("EditComment: %v", err)
+		}
+		if edited.EditedAt == nil {
+			t.Fatal("EditComment recorded no edit stamp")
+		}
+		stamp := *edited.EditedAt
+
+		// Every path that hands a comment out has to copy it, so each is
+		// mutated in turn and the store re-read after both.
+		*edited.EditedAt = stamp.Add(-1000 * time.Hour)
+		listed, err := s.Comments(ctx, item.ID, tracker.PageRequest{})
+		if err != nil {
+			t.Fatalf("Comments: %v", err)
+		}
+		if !listed.Rows[0].EditedAt.Equal(stamp) {
+			t.Error("writing through the comment EditComment returned reached the store")
+		}
+		*listed.Rows[0].EditedAt = stamp.Add(-2000 * time.Hour)
+
+		again, err := s.Comments(ctx, item.ID, tracker.PageRequest{})
+		if err != nil {
+			t.Fatalf("Comments: %v", err)
+		}
+		if !again.Rows[0].EditedAt.Equal(stamp) {
+			t.Error("writing through a listed comment reached the store")
+		}
+	})
+
+	t.Run("does not alias event changes", func(t *testing.T) {
+		s, ctx := fixture(t, newStore)
+		item := create(t, s, tracker.NewItem{})
+		if _, err := move(t, s, item, "doing"); err != nil {
+			t.Fatalf("move: %v", err)
+		}
+		page, err := s.Events(ctx, tracker.EventQuery{
+			Item: &item.ID, Kinds: []tracker.EventKind{tracker.EventStatusChanged},
+		})
+		if err != nil {
+			t.Fatalf("Events: %v", err)
+		}
+		if len(page.Rows) != 1 || len(page.Rows[0].Changes) != 1 {
+			t.Fatalf("Events = %+v, want one status change", page.Rows)
+		}
+		*page.Rows[0].Changes[0].To = tracker.Text("rewritten history")
+
+		again, err := s.Events(ctx, tracker.EventQuery{
+			Item: &item.ID, Kinds: []tracker.EventKind{tracker.EventStatusChanged},
+		})
+		if err != nil {
+			t.Fatalf("Events: %v", err)
+		}
+		if to, _ := again.Rows[0].Changes[0].To.String(); to != "doing" {
+			t.Errorf("recorded history was rewritten through a returned event: %q", to)
 		}
 	})
 

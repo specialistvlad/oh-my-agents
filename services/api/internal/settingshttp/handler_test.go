@@ -101,6 +101,21 @@ func TestNothingEscapesTheRoot(t *testing.T) {
 	}
 }
 
+// An oversized body and an unreadable one are different failures. Both used
+// to be reported as 413.
+func TestOversizedBodyIs413(t *testing.T) {
+	h, _ := serve(t)
+	huge := `{"v":"` + strings.Repeat("x", 2<<20) + `"}`
+	if code := do(t, h, http.MethodPut, "/k", huge).Code; code != http.StatusRequestEntityTooLarge {
+		t.Errorf("PUT of a 2MiB body = %d, want 413", code)
+	}
+	// A body under the cap is unaffected.
+	ok := `{"v":"` + strings.Repeat("x", 1024) + `"}`
+	if code := do(t, h, http.MethodPut, "/k", ok).Code; code != http.StatusNoContent {
+		t.Errorf("PUT of a small body = %d, want 204", code)
+	}
+}
+
 func TestDelete(t *testing.T) {
 	h, _ := serve(t)
 	do(t, h, http.MethodPut, "/k", `{}`)

@@ -98,7 +98,9 @@ func (s *Store) UpdateItem(
 // DeleteItem implements [tracker.ItemWriter]. An item with children is not
 // deleted: doing so would either orphan them or remove a subtree silently,
 // and neither is a decision this call should make by itself.
-func (s *Store) DeleteItem(ctx context.Context, id tracker.ItemID, expected tracker.Version) error {
+func (s *Store) DeleteItem(
+	ctx context.Context, id tracker.ItemID, expected tracker.Version, by tracker.ActorRef,
+) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -119,6 +121,7 @@ func (s *Store) DeleteItem(ctx context.Context, id tracker.ItemID, expected trac
 		}
 	}
 	delete(s.items, id)
+	s.emit(id, tracker.EventItemDeleted, by, s.clock.Now(), nil)
 	return nil
 }
 

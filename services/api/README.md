@@ -29,15 +29,18 @@ Passing it is not the same as being simple.
 
 ## Layout
 
-| Path                    | What it is                                          |
-| ----------------------- | --------------------------------------------------- |
-| `cmd/server`            | Entrypoint. Reads config, starts the server, waits. |
-| `internal/config`       | The only place env is read; operational defaults.   |
-| `internal/httpserver`   | Listener, routes, mounts, graceful shutdown.        |
-| `internal/settings`     | Runtime settings, on the filesystem under `.oma`.   |
-| `internal/settingshttp` | The settings store over HTTP.                       |
-| `internal/tracker`      | Task tracker domain model. Types and ports only.    |
-| `tests/feature`         | Whole scenarios against in-memory fakes.            |
-| `tests/component`       | Tests that need real infrastructure.                |
+| Path                      | What it is                                          |
+| ------------------------- | --------------------------------------------------- |
+| `cmd/server`              | Entrypoint. Reads config, starts the server, waits. |
+| `internal/config`         | The only place env is read; operational defaults.   |
+| `internal/httpserver`     | Listener, routes, mounts, graceful shutdown.        |
+| `internal/settings`       | Runtime settings, on the filesystem under `.oma`.   |
+| `internal/settingshttp`   | The settings store over HTTP.                       |
+| `internal/tracker`        | Task tracker domain model, ports and validation.    |
+| `…/tracker/memory`        | In-memory store. Enforces every invariant itself.   |
+| `…/tracker/trackertest`   | Conformance suite every store must pass.            |
+| `…/settings/settingstest` | The same, for settings stores.                      |
+| `tests/feature`           | Whole scenarios against in-memory fakes.            |
+| `tests/component`         | Tests that need real infrastructure.                |
 
 `make help` lists the targets.

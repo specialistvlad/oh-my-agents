@@ -2,6 +2,7 @@ package settingshttp
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,13 +20,23 @@ type errBody struct {
 	Error string `json:"error"`
 }
 
-// readBody reads a request body up to maxBody.
-func readBody(r *http.Request) (settings.Document, error) {
-	doc, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, maxBody))
-	if err != nil {
-		return nil, fmt.Errorf("body exceeds %d bytes", maxBody)
+// errTooLarge is a body over the cap, as opposed to one that could not be
+// read at all. They are different failures and deserve different statuses.
+var errTooLarge = errors.New("body too large")
+
+// readBody reads a request body up to maxBody. The ResponseWriter is handed
+// to MaxBytesReader so it can close a connection that keeps sending after the
+// limit, which is the whole point of the cap.
+func readBody(w http.ResponseWriter, r *http.Request) (settings.Document, error) {
+	doc, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBody))
+	if err == nil {
+		return doc, nil
 	}
-	return doc, nil
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		return nil, fmt.Errorf("%w: %d bytes maximum", errTooLarge, maxBody)
+	}
+	return nil, fmt.Errorf("unreadable body: %w", err)
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

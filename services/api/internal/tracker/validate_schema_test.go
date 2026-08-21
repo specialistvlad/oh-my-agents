@@ -76,6 +76,27 @@ func TestReservedFieldKeysAreRefused(t *testing.T) {
 	}
 }
 
+// Every level of the schema validates itself, Option included — it was the
+// one that used to be checked inline instead.
+func TestEveryLevelValidatesItself(t *testing.T) {
+	levels := map[string]tracker.Validator{
+		"schema":     bugSchema(),
+		"item type":  bugType(),
+		"field":      bugType().Fields[0],
+		"status":     bugType().Statuses[0],
+		"transition": bugType().Transitions[0],
+		"option":     bugType().Fields[1].Options[0],
+	}
+	for name, level := range levels {
+		if err := level.Validate(); err != nil {
+			t.Errorf("%s: Validate = %v, want nil", name, err)
+		}
+	}
+	if err := (tracker.Option{Key: "k"}).Validate(); !errors.Is(err, tracker.ErrInvalidSchema) {
+		t.Errorf("Option with no name = %v, want ErrInvalidSchema", err)
+	}
+}
+
 func TestCategoryResolved(t *testing.T) {
 	resolved := map[tracker.StatusCategory]bool{
 		tracker.CategoryBacklog:  false,

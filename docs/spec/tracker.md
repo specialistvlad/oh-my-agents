@@ -77,6 +77,12 @@ Small and single-purpose, so a consumer depends only on what it uses.
 `Store` composes all of them. It is the adapter conformance target and the one
 interface consumers must not depend on.
 
+Every mutation names the actor performing it. An author is not necessarily the
+editor and the last writer is not necessarily the deleter, so `DeleteItem`,
+`EditComment`, `DeleteComment` and `RemoveLink` all take one explicitly rather
+than inferring it from a struct the caller filled in — the activity feed is
+only worth reading if it attributes accurately.
+
 `Query` is set membership, field equality, one time range and a closed list of
 sort keys. No expression language — a filesystem has to be able to answer it.
 
@@ -137,6 +143,11 @@ translating at their own boundary and is the only place the payload is loose.
 - **`memory` cursors are offsets**, which is honest for a fake and wrong for
   anything durable — an offset shifts when rows are inserted. Cursors are
   opaque so each adapter can choose differently.
+- **Everything handed out is a copy**, all the way down: item fields and parent
+  pointers, comment pointers, event changes, and the schema's nested slices.
+  A caller cannot reach the store through a value it was given.
+- **Deletion is an event** (`EventItemDeleted`). A reader that never sees one
+  cannot distinguish a deleted item from one it has not heard about.
 
 ## Next
 

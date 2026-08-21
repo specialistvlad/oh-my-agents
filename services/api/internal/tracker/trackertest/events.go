@@ -91,6 +91,25 @@ func runEvents(t *testing.T, newStore Factory) {
 		}
 	})
 
+	// A reader that never sees a deletion cannot tell one from an item it
+	// has simply not heard about.
+	t.Run("records deletion", func(t *testing.T) {
+		s, ctx := fixture(t, newStore)
+		item := create(t, s, tracker.NewItem{})
+		if err := s.DeleteItem(ctx, item.ID, item.Version, human("vk")); err != nil {
+			t.Fatalf("DeleteItem: %v", err)
+		}
+		page, err := s.Events(ctx, tracker.EventQuery{
+			Item: &item.ID, Kinds: []tracker.EventKind{tracker.EventItemDeleted},
+		})
+		if err != nil {
+			t.Fatalf("Events: %v", err)
+		}
+		if len(page.Rows) != 1 {
+			t.Errorf("deletion events = %d, want 1", len(page.Rows))
+		}
+	})
+
 	// Resuming from the last sequence handled is the whole point of the
 	// feed: a reader must never re-handle what it has already seen.
 	t.Run("resumes from a sequence", func(t *testing.T) {

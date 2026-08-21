@@ -100,9 +100,31 @@ func (s *Store) Events(ctx context.Context, q tracker.EventQuery) (tracker.Event
 		if len(q.Kinds) > 0 && !containsKind(q.Kinds, e.Kind) {
 			continue
 		}
-		matched = append(matched, e)
+		matched = append(matched, cloneEvent(e))
 	}
 	return paginate(matched, q.Page)
+}
+
+// cloneEvent copies the changes an event carries. Without it a caller could
+// rewrite recorded history through the pointers it was handed.
+func cloneEvent(e tracker.Event) tracker.Event {
+	out := e
+	out.Changes = make([]tracker.Change, 0, len(e.Changes))
+	for _, c := range e.Changes {
+		if c.From != nil {
+			from := *c.From
+			c.From = &from
+		}
+		if c.To != nil {
+			to := *c.To
+			c.To = &to
+		}
+		out.Changes = append(out.Changes, c)
+	}
+	if len(out.Changes) == 0 {
+		out.Changes = nil
+	}
+	return out
 }
 
 func containsKind(kinds []tracker.EventKind, k tracker.EventKind) bool {

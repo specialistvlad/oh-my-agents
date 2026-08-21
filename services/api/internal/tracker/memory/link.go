@@ -55,7 +55,7 @@ func (s *Store) AddLink(ctx context.Context, l tracker.Link) error {
 }
 
 // RemoveLink implements [tracker.LinkWriter].
-func (s *Store) RemoveLink(ctx context.Context, l tracker.Link) error {
+func (s *Store) RemoveLink(ctx context.Context, l tracker.Link, by tracker.ActorRef) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (s *Store) RemoveLink(ctx context.Context, l tracker.Link) error {
 	}
 	removed := s.links[at]
 	s.links = append(s.links[:at], s.links[at+1:]...)
-	s.emit(removed.From, tracker.EventLinkRemoved, l.CreatedBy, s.clock.Now(), nil)
+	s.emit(removed.From, tracker.EventLinkRemoved, by, s.clock.Now(), nil)
 	return nil
 }
 

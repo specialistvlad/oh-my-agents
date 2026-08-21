@@ -76,7 +76,8 @@ Mounted at `/settings/` by `cmd/server`.
 | `PUT`    | `/{key...}` | 204; 400 on a bad key or document |
 | `DELETE` | `/{key...}` | 204, or 404                       |
 
-Bodies are capped at 1 MiB. The handler declares its own narrow `Store`
+Bodies are capped at 1 MiB; over the cap is 413, unreadable is 400. The
+handler declares its own narrow `Store`
 interface and names no storage technology, so it serves `FS` and `Memory`
 identically — which the tests assert.
 

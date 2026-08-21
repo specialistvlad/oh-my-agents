@@ -95,6 +95,25 @@ func TestMultiSelectCopiesBothWays(t *testing.T) {
 	}
 }
 
+// Raw is the only door out of an otherwise immutable type, so it must not
+// hand over the value's own memory.
+func TestRawCopiesSlicePayloads(t *testing.T) {
+	v := tracker.MultiSelect("a", "b")
+
+	raw, ok := v.Raw().([]tracker.OptionKey)
+	if !ok {
+		t.Fatalf("Raw() = %T, want []OptionKey", v.Raw())
+	}
+	raw[0] = "tampered"
+
+	if got, _ := v.MultiSelect(); got[0] != "a" {
+		t.Errorf("writing through Raw() reached the value: %v", got)
+	}
+	if again, _ := v.Raw().([]tracker.OptionKey); again[0] != "a" {
+		t.Errorf("Raw() returned tampered data on a second call: %v", again)
+	}
+}
+
 func TestValueEquality(t *testing.T) {
 	now := time.Now()
 	cases := map[string]struct {

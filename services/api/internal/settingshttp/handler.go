@@ -72,9 +72,13 @@ func New(s Store) http.Handler {
 }
 
 func put(w http.ResponseWriter, r *http.Request, s Store) {
-	doc, err := readBody(r)
-	if err != nil {
+	doc, err := readBody(w, r)
+	if errors.Is(err, errTooLarge) {
 		writeJSON(w, http.StatusRequestEntityTooLarge, errBody{Error: err.Error()})
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errBody{Error: err.Error()})
 		return
 	}
 	if err := s.Set(r.Context(), key(r), doc); err != nil {

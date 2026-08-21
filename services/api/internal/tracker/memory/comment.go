@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/tracker"
 )
@@ -24,14 +25,16 @@ func (s *Store) Comments(
 	var matched []tracker.Comment
 	for _, c := range s.comments {
 		if c.Item == id {
-			matched = append(matched, c)
+			matched = append(matched, cloneComment(c))
 		}
 	}
+	// ID breaks the tie so the order is total: two comments written in the
+	// same instant must still page deterministically.
 	slices.SortStableFunc(matched, func(a, b tracker.Comment) int {
 		if c := a.CreatedAt.Compare(b.CreatedAt); c != 0 {
 			return c
 		}
-		return int(len(a.ID) - len(b.ID))
+		return strings.Compare(string(a.ID), string(b.ID))
 	})
 	return paginate(matched, page)
 }
@@ -62,7 +65,7 @@ func (s *Store) AddComment(ctx context.Context, n tracker.NewComment) (tracker.C
 	}
 	s.comments[c.ID] = c
 	s.emit(n.Item, tracker.EventCommentAdded, n.Author, now, nil)
-	return c, nil
+	return cloneComment(c), nil
 }
 
 // checkReplyTo enforces one level of threading: a reply must exist, sit on
@@ -86,7 +89,7 @@ func (s *Store) checkReplyTo(n tracker.NewComment) error {
 
 // EditComment implements [tracker.CommentWriter].
 func (s *Store) EditComment(
-	ctx context.Context, id tracker.CommentID, expected tracker.Version, body string,
+	ctx context.Context, id tracker.CommentID, expected tracker.Version, body string, by tracker.ActorRef,
 ) (tracker.Comment, error) {
 	if err := ctx.Err(); err != nil {
 		return tracker.Comment{}, err
@@ -103,12 +106,14 @@ func (s *Store) EditComment(
 	c.EditedAt = &now
 	c.Version++
 	s.comments[id] = c
-	s.emit(c.Item, tracker.EventCommentEdited, c.Author, now, nil)
-	return c, nil
+	s.emit(c.Item, tracker.EventCommentEdited, by, now, nil)
+	return cloneComment(c), nil
 }
 
 // DeleteComment implements [tracker.CommentWriter].
-func (s *Store) DeleteComment(ctx context.Context, id tracker.CommentID, expected tracker.Version) error {
+func (s *Store) DeleteComment(
+	ctx context.Context, id tracker.CommentID, expected tracker.Version, by tracker.ActorRef,
+) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -120,7 +125,7 @@ func (s *Store) DeleteComment(ctx context.Context, id tracker.CommentID, expecte
 		return err
 	}
 	delete(s.comments, id)
-	s.emit(c.Item, tracker.EventCommentDeleted, c.Author, s.clock.Now(), nil)
+	s.emit(c.Item, tracker.EventCommentDeleted, by, s.clock.Now(), nil)
 	return nil
 }
 
@@ -134,4 +139,19 @@ func (s *Store) loadComment(id tracker.CommentID, expected tracker.Version) (tra
 			tracker.ErrVersionConflict, id, c.Version, expected)
 	}
 	return c, nil
+}
+
+// cloneComment copies the pointers a comment carries, so a caller writing
+// through EditedAt or ReplyTo cannot reach the stored value.
+func cloneComment(c tracker.Comment) tracker.Comment {
+	out := c
+	if c.ReplyTo != nil {
+		replyTo := *c.ReplyTo
+		out.ReplyTo = &replyTo
+	}
+	if c.EditedAt != nil {
+		editedAt := *c.EditedAt
+		out.EditedAt = &editedAt
+	}
+	return out
 }

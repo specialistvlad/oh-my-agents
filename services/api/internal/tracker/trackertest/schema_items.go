@@ -143,7 +143,7 @@ func runItems(t *testing.T, newStore Factory) {
 		s, ctx := fixture(t, newStore)
 		parent := create(t, s, tracker.NewItem{})
 		child(t, s, parent.ID)
-		if err := s.DeleteItem(ctx, parent.ID, parent.Version); !errors.Is(err, tracker.ErrHasChildren) {
+		if err := s.DeleteItem(ctx, parent.ID, parent.Version, human("vk")); !errors.Is(err, tracker.ErrHasChildren) {
 			t.Errorf("DeleteItem = %v, want ErrHasChildren", err)
 		}
 	})
@@ -151,7 +151,7 @@ func runItems(t *testing.T, newStore Factory) {
 	t.Run("deletes a leaf", func(t *testing.T) {
 		s, ctx := fixture(t, newStore)
 		item := create(t, s, tracker.NewItem{})
-		if err := s.DeleteItem(ctx, item.ID, item.Version); err != nil {
+		if err := s.DeleteItem(ctx, item.ID, item.Version, human("vk")); err != nil {
 			t.Fatalf("DeleteItem: %v", err)
 		}
 		if _, err := s.Item(ctx, item.ID); !errors.Is(err, tracker.ErrNotFound) {

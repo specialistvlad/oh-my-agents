@@ -7,7 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -169,7 +169,7 @@ func (s *FS) Keys(ctx context.Context) ([]Key, error) {
 	if err != nil {
 		return nil, fmt.Errorf("settings: list %q: %w", base, err)
 	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	slices.Sort(keys)
 	return keys, nil
 }
 

@@ -1,6 +1,9 @@
 package tracker
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // Value is one field's value: a kind and a payload that always agree.
 //
@@ -71,4 +74,13 @@ func (v Value) IsZero() bool { return v.kind == "" }
 // number; bool; [time.Time] for date; [time.Duration]; [OptionKey] for
 // select; []OptionKey for multi-select; [ActorRef]; [ItemID] for an item
 // reference.
-func (v Value) Raw() any { return v.raw }
+//
+// Slice payloads are copied, so writing through the result cannot reach the
+// value. A Value is immutable once built and this is the only door that could
+// have made it otherwise.
+func (v Value) Raw() any {
+	if options, ok := v.raw.([]OptionKey); ok {
+		return slices.Clone(options)
+	}
+	return v.raw
+}

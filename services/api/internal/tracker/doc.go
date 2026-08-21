@@ -28,8 +28,14 @@
 // off status names, so the rule holds no matter what a type calls its
 // columns. See [SubtreeReader].
 //
-// This package declares types and ports only. Storage adapters, schema
-// validation, transition checking and the resolution gate are not
-// implemented here; see docs/spec/tracker.md for what is specified and what
-// is still open.
+// # What lives where
+//
+// This package holds the domain: the types, the ports, and every rule that
+// can be decided from the values in hand — [Validator] at each level of the
+// schema, and [Schema.ValidateItem] and friends for content.
+//
+// The rules that must look at other items cannot be answered from a schema
+// and belong to a store, which is where [Store] documents them. The memory
+// package is one such store; trackertest is the suite every store must pass.
+// No durable adapter exists yet — see docs/spec/tracker.md.
 package tracker

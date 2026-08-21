@@ -48,10 +48,15 @@ type ItemFinder interface {
 // ItemWriter creates, edits and removes items. Every mutation states the
 // version it expects and fails with [ErrVersionConflict] if the item has
 // moved on, so concurrent agents cannot overwrite one another unnoticed.
+//
+// Every mutation also names the actor performing it, because the activity
+// feed is only worth reading if it attributes accurately. An author is not
+// necessarily the editor, and the last person to touch an item is not
+// necessarily the one who deleted it.
 type ItemWriter interface {
 	CreateItem(ctx context.Context, n NewItem) (Item, error)
 	UpdateItem(ctx context.Context, id ItemID, expected Version, p Patch) (Item, error)
-	DeleteItem(ctx context.Context, id ItemID, expected Version) error
+	DeleteItem(ctx context.Context, id ItemID, expected Version, by ActorRef) error
 }
 
 // SubtreeReader answers questions about an item's place in the tree without
@@ -70,11 +75,13 @@ type CommentReader interface {
 	Comments(ctx context.Context, id ItemID, page PageRequest) (CommentPage, error)
 }
 
-// CommentWriter posts, edits and removes comments.
+// CommentWriter posts, edits and removes comments. Editing and deleting name
+// the actor for the same reason [ItemWriter] does: a moderator removing
+// someone else's comment must not be recorded as that person.
 type CommentWriter interface {
 	AddComment(ctx context.Context, n NewComment) (Comment, error)
-	EditComment(ctx context.Context, id CommentID, expected Version, body string) (Comment, error)
-	DeleteComment(ctx context.Context, id CommentID, expected Version) error
+	EditComment(ctx context.Context, id CommentID, expected Version, body string, by ActorRef) (Comment, error)
+	DeleteComment(ctx context.Context, id CommentID, expected Version, by ActorRef) error
 }
 
 // LinkReader reads every link touching an item, in either direction.
@@ -83,9 +90,14 @@ type LinkReader interface {
 }
 
 // LinkWriter adds and removes links.
+//
+// A link is identified by From, Kind and To alone; CreatedAt and CreatedBy
+// are not part of its identity, so RemoveLink matches on those three fields
+// and takes the removing actor separately rather than reading it back off a
+// struct the caller filled in.
 type LinkWriter interface {
 	AddLink(ctx context.Context, l Link) error
-	RemoveLink(ctx context.Context, l Link) error
+	RemoveLink(ctx context.Context, l Link, by ActorRef) error
 }
 
 // EventReader reads the activity feed. It is the seam anything reactive is
