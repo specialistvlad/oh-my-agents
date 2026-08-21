@@ -46,4 +46,12 @@ var (
 	ErrUnresolvedDescendants = errors.New("tracker: item has unresolved descendants")
 	// ErrCycle is a reparenting that would make an item its own ancestor.
 	ErrCycle = errors.New("tracker: parent cycle")
+	// ErrHasChildren is an attempt to delete an item that still has some.
+	// Deleting would either orphan them or silently remove a subtree, and
+	// neither is a decision a delete call should make on its own.
+	ErrHasChildren = errors.New("tracker: item has children")
+	// ErrResolvedParent is an attempt to put or leave unresolved work under
+	// a resolved parent, which would falsify the resolution gate from the
+	// other direction.
+	ErrResolvedParent = errors.New("tracker: parent is already resolved")
 )

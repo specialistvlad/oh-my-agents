@@ -21,15 +21,14 @@ type Validator interface {
 // It is the root of the validation tree and the authority content rules are
 // checked against.
 //
-// Schema will carry, alongside [Validator]:
+// Alongside [Validator], Schema answers the content questions:
+// [Schema.Type], [Schema.ValidateItem], [Schema.ValidateNew],
+// [Schema.ValidatePatch] and [Schema.ValidateTransition].
 //
-//	Type(TypeKey) (ItemType, bool)         look up one type
-//	ValidateItem(Item) error               item against its type's fields
-//	ValidateNew(NewItem) error             creation, before an ID exists
-//	ValidatePatch(Item, Patch) error       an edit against the current item
-//	ValidateTransition(ItemType, from, to StatusKey, Item) error
-//
-// None of these are implemented yet.
+// All of them are pure. The rules that need to see other items — the tree
+// staying acyclic, a parent not resolving before its descendants — cannot be
+// answered from a schema alone and belong to the store, which is where
+// [Store] documents them.
 type Schema struct {
 	Types []ItemType
 }

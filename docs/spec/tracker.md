@@ -5,7 +5,8 @@ Implementation spec for `services/api/internal/tracker`. Decisions live in
 [ADR-0005](../adr/0005-storage-adapters-enforce-invariants.md); this is the
 working document for what exists, what is next, and what is still open.
 
-Status: **types and ports only.** Nothing is implemented.
+Status: **domain layer and an in-memory store implemented.** No durable
+storage yet.
 
 ## Model
 
@@ -84,20 +85,65 @@ sort keys. No expression language — a filesystem has to be able to answer it.
 Per ADR-0005, the adapter enforces. The invariants are listed in
 `contract.go`: schema, workflow, hierarchy, resolution, concurrency.
 
-The filesystem adapter implements them in Go, leaning on `Validator`. The SQL
-adapter pushes them into constraints and triggers and writes no validation of
-its own. Both must produce the same sentinel errors.
+The pure half is reusable and lives in the domain: `Validator` on `Schema`,
+`ItemType`, `FieldDef`, `Status` and `Transition`, each validating itself and
+everything downstream, plus `Schema.ValidateItem`, `ValidateNew`,
+`ValidatePatch` and `ValidateTransition`. Validating the root validates the
+tree.
+
+The rules that must look at other items cannot come from a schema and belong
+to the store: the tree stays acyclic, and the resolution gate. `memory`
+implements them; a filesystem store will do the same in Go; a SQL store is
+expected to push them into constraints and triggers and write no validation of
+its own. All must produce the same sentinel errors.
+
+### The resolution gate has three directions
+
+An invariant that only holds when approached one way does not hold. All three
+are enforced and tested:
+
+1. An item may not **resolve** while any descendant is unresolved.
+2. Unresolved work may not be **created or moved under** a resolved parent
+   (`ErrResolvedParent`).
+3. An item may not **reopen** beneath an already-resolved ancestor
+   (`ErrResolvedParent`).
+
+Canceling is gated exactly like completing — ADR-0004 refuses rather than
+cascading. A canceled child does not hold its parent open, since `canceled` is
+a resolved category.
+
+## Implementations
+
+**`memory`** — the fake ADR-0002 requires, enforcing every invariant itself.
+
+**`trackertest`** — the conformance suite: 75 assertions across schema, items,
+versioning, workflow, hierarchy, resolution, queries, comments, links, events
+and isolation. Any adapter that has not passed it is not finished.
+
+`Value` now has typed constructors and accessors, so a value that claims to be
+a number and holds a string cannot be built. `Raw` remains for adapters
+translating at their own boundary and is the only place the payload is loose.
+
+## Decisions taken while implementing
+
+- **Deleting an item with children is refused** (`ErrHasChildren`). Deleting
+  would either orphan them or remove a subtree silently, and neither is a
+  choice a delete call should make alone.
+- **A stored schema may not be made to contradict its data.** `PutItemType`
+  and `DeleteItemType` refuse a change that would invalidate existing items.
+- **Comment threading is one level.** A reply cannot be replied to.
+- **Adding the same link twice is a no-op**, not an error; the caller's intent
+  is already satisfied.
+- **`memory` cursors are offsets**, which is honest for a fake and wrong for
+  anything durable — an offset shifts when rows are inserted. Cursors are
+  opaque so each adapter can choose differently.
 
 ## Next
 
-1. **Conformance suite** (`trackertest`) — the executable specification. Per
-   ADR-0005 this is not deferrable past the first adapter.
-2. **`Validator` implementations** — `Schema`, `ItemType`, `FieldDef`, `Status`,
-   `Transition`, each validating itself and everything downstream.
-3. **`Value` constructors and accessors** — `Text("…")`, `v.Text() (string, bool)`.
-   Until these exist the kind/payload invariant is convention only, and a wrong
-   `Raw` is a runtime surprise. This is the largest open risk.
-4. **In-memory adapter**, then filesystem, then SQL.
+1. **Filesystem adapter** under `.oma/tracker/`, held to `trackertest`. This is
+   the DB→filesystem swap ADR-0002 names as its reference case.
+2. **HTTP surface**, mounted beside `/settings/`.
+3. **Authentication**, before either is reachable from anywhere untrusted.
 
 ## Open questions
 

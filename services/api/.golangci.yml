@@ -20,6 +20,11 @@ linters:
     - funlen
     - dupl
   settings:
+    exhaustive:
+      # A default case genuinely handles the remaining members, so it counts
+      # as exhaustive. Switches without one are still required to cover every
+      # member, which is where the linter earns its keep.
+      default-signifies-exhaustive: true
     misspell:
       locale: US
     godot:
@@ -39,6 +44,16 @@ linters:
       - path: _test\.go
         linters:
           - godot
+          - funlen
+          - gocyclo
+          - gocognit
+          - dupl
+      # Conformance suites are tests, but they cannot be named _test.go
+      # because the adapters they check import them. The readability limits
+      # are a production-code rule, and a suite that enumerates cases is long
+      # by nature — the same reasoning that exempts _test.go above.
+      - path: (^|/)[a-z]+test/
+        linters:
           - funlen
           - gocyclo
           - gocognit

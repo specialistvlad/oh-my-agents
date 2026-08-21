@@ -53,6 +53,11 @@ const (
 // same way.
 //
 // From is nil when the field had no value, To is nil when it was cleared.
+//
+// The built-in keys carry the kinds they can: [FieldTitle], [FieldBody] and
+// [FieldStatus] as text, [FieldParent] as an item reference. Status is text
+// rather than a kind of its own because a status key is only meaningful
+// against a type, and an event is read without one.
 type Change struct {
 	Field FieldKey
 	From  *Value
