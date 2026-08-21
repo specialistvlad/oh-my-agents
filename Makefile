@@ -33,10 +33,43 @@ start-web: ## Run the web ui only
 # ─── Checks ───────────────────────────────────────────────────────────────────
 
 .PHONY: check
-check: ## Run every check for both services
-	@_failed=0; \
-	$(MAKE) -C $(API) check || _failed=1; \
-	$(MAKE) -C $(WEB) check || _failed=1; \
+check: ## Run every check for both services in parallel (fails if either fails)
+	@set -o pipefail; \
+	_dir=$$(mktemp -d); trap 'rm -rf $$_dir' EXIT; \
+	echo "▸ checking 2 services in parallel (output captured per service, dumped on completion)"; \
+	echo ""; \
+	step() { \
+		local id="$$1" label="$$2"; shift 2; \
+		local start; start=$$(date +%s); \
+		echo "[start] $$label"; \
+		( "$$@" ) > "$$_dir/$$id.out" 2>&1; \
+		local rc=$$?; \
+		echo "$$rc"    > "$$_dir/$$id.rc"; \
+		echo "$$label" > "$$_dir/$$id.label"; \
+		echo "$$(($$(date +%s) - start))" > "$$_dir/$$id.dur"; \
+		if [ "$$rc" -eq 0 ]; then echo "[done]  $$label ($$(cat $$_dir/$$id.dur)s)"; \
+		else echo "[FAIL]  $$label ($$(cat $$_dir/$$id.dur)s, rc=$$rc)"; fi; \
+	}; \
+	step api "api  (make check)"     $(MAKE) -C $(API) check & \
+	step web "web  (npm run check)"  $(MAKE) -C $(WEB) check & \
+	wait; \
+	echo ""; \
+	for id in api web; do \
+		echo "════════════════════════════════════════"; \
+		echo "  $$(cat $$_dir/$$id.label)"; \
+		echo "════════════════════════════════════════"; \
+		cat "$$_dir/$$id.out"; \
+		echo ""; \
+	done; \
+	_failed=0; \
+	echo "═══════════════════════════════════════"; \
+	echo "  make check — summary"; \
+	echo "═══════════════════════════════════════"; \
+	for id in api web; do \
+		rc=$$(cat "$$_dir/$$id.rc"); dur=$$(cat "$$_dir/$$id.dur"); label=$$(cat "$$_dir/$$id.label"); \
+		mark="✓"; if [ "$$rc" != "0" ]; then mark="✗"; _failed=1; fi; \
+		printf "  %s %s (%ss)\n" "$$mark" "$$label" "$$dur"; \
+	done; \
 	exit $$_failed
 
 .PHONY: check-api
