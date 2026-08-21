@@ -1,9 +1,10 @@
 // Package bustest is the conformance suite for [bus.Bus].
 //
-// ADR-0008 puts two implementations behind one port — an in-process one and
-// Valkey — so that the default installs nothing and scaling out is a config
-// change. Two implementations are only interchangeable if they behave
-// identically, and this is what says they do.
+// Only [bus.Memory] exists today; a networked implementation is deliberately
+// deferred (ADR-0008). So this suite's job right now is not to compare two
+// things but to write down what a bus must do, while the only implementation
+// is still small enough to argue about — so the second one is measured
+// against a definition rather than against whatever the first happened to do.
 package bustest
 
 import (

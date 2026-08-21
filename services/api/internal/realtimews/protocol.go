@@ -27,8 +27,9 @@ const (
 	KindError = "error"
 	// KindEvent carries something that happened.
 	KindEvent = "event"
-	// KindResync means the connection missed messages and must re-read from
-	// the store. It is the only recovery path in this design.
+	// KindResync means the connection missed messages. The client refetches
+	// the current state of what it is showing; nothing is replayed. It is
+	// the only recovery path in this design.
 	KindResync = "resync"
 	// KindPong answers a ping.
 	KindPong = "pong"

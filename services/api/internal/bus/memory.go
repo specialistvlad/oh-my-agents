@@ -15,8 +15,9 @@ const backlog = 256
 //
 // Delivery is best-effort by design. A subscriber that stops reading has
 // messages dropped rather than stalling the publisher, and detects that as a
-// gap in [Message.Seq]. That is the same contract a networked bus offers, so
-// code written against this one does not change when Valkey is switched on.
+// gap in [Message.Seq]. That is deliberately the weakest contract a networked
+// bus could offer, so nothing written against this one relies on a guarantee
+// that would disappear the day a real broker sits behind the port.
 type Memory struct {
 	mu     sync.Mutex
 	subs   map[chan Message]struct{}

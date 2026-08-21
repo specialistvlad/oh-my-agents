@@ -1,11 +1,6 @@
 import { backoffDelay } from './backoff';
-import type {
-  Inbound,
-  Listener,
-  Outbound,
-  RealtimeEvent,
-  Status,
-} from './types';
+import { decode, toEvent } from './frames';
+import type { Inbound, Listener, Status } from './types';
 
 /**
  * A realtime connection to the api.
@@ -23,6 +18,7 @@ export class RealtimeClient {
   private stopped = false;
   private nextId = 0;
   private status: Status = 'closed';
+  private readonly pending = new Set<string>();
 
   constructor(private readonly url: string) {}
 
@@ -48,7 +44,7 @@ export class RealtimeClient {
    */
   join(room: string): void {
     this.rooms.add(room);
-    this.send({ type: 'join', id: this.id(), room });
+    this.sendJoin(room);
   }
 
   leave(room: string): void {
@@ -73,9 +69,11 @@ export class RealtimeClient {
       this.setStatus('open');
       // Re-join everything: the server knows nothing about a connection it
       // has not seen before, including one replacing a dropped socket.
+      this.pending.clear();
       for (const room of this.rooms) {
-        this.send({ type: 'join', id: this.id(), room });
+        this.sendJoin(room);
       }
+      if (this.rooms.size === 0) this.announceReady();
     };
     socket.onmessage = (message) => this.receive(message.data);
     socket.onclose = () => {
@@ -95,26 +93,32 @@ export class RealtimeClient {
   }
 
   private receive(raw: unknown): void {
-    if (typeof raw !== 'string') return;
-    let frame: Outbound;
-    try {
-      frame = JSON.parse(raw) as Outbound;
-    } catch {
-      return; // a frame we cannot parse is one we cannot act on
-    }
-    if (frame.type === 'event' && frame.room && frame.kind) {
-      const event: RealtimeEvent = {
-        room: frame.room,
-        seq: frame.seq ?? 0,
-        kind: frame.kind,
-        data: frame.data,
-      };
+    const frame = decode(raw);
+    if (!frame) return;
+
+    const event = toEvent(frame);
+    if (event) {
       this.listeners.forEach((l) => l.onEvent?.(event));
       return;
     }
     if (frame.type === 'resync') {
       this.listeners.forEach((l) => l.onResync?.(frame.room ?? ''));
+      return;
     }
+    if (frame.type === 'ack' && frame.id && this.pending.delete(frame.id)) {
+      if (this.pending.size === 0) this.announceReady();
+    }
+  }
+
+  /** Sends a join and remembers it until the server acknowledges it. */
+  private sendJoin(room: string): void {
+    const id = this.id();
+    this.pending.add(id);
+    this.send({ type: 'join', id, room });
+  }
+
+  private announceReady(): void {
+    this.listeners.forEach((l) => l.onReady?.());
   }
 
   private send(frame: Inbound): void {
@@ -134,9 +138,4 @@ export class RealtimeClient {
     this.nextId += 1;
     return `c${this.nextId}`;
   }
-}
-
-/** Turns the configured http api url into its websocket equivalent. */
-export function socketUrl(apiUrl: string): string {
-  return `${apiUrl.replace(/^http/, 'ws')}/ws`;
 }

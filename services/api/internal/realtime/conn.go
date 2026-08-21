@@ -15,8 +15,10 @@ const outbound = 64
 // Delivery is one message on its way to a client.
 //
 // Resync is the other kind of thing that can arrive: it means the connection
-// missed something and must re-read from the store. There is exactly one
-// recovery path in this design, and this is how it is signaled.
+// missed something, and the client's answer is always to fetch the current
+// state of what it is showing again. Nothing is replayed. That is the same
+// move a client makes on connect, which is why there is only one recovery
+// path in this design, and this is how it is signaled.
 type Delivery struct {
 	Room   bus.Room
 	Seq    uint64
@@ -124,7 +126,7 @@ func (c *Conn) resync() {
 // Dropping the resync when the queue is full would lose it exactly when it
 // matters, since the queue being full is what caused it. Draining is not a
 // workaround for that but the right answer on its own: the client is about to
-// re-read from the store, so everything queued is already superseded and
+// refetch current state, so everything queued is already superseded and
 // delivering it first would be work for nothing.
 func (c *Conn) pushResync(room bus.Room) {
 	for {

@@ -37,6 +37,16 @@ export type Status = 'connecting' | 'open' | 'reconnecting' | 'closed';
 export type Listener = {
   onEvent?: (event: RealtimeEvent) => void;
   onStatus?: (status: Status) => void;
-  /** The connection missed messages; re-read from the server. */
+  /**
+   * Every requested room is now joined, so anything that happens from here
+   * will be delivered. This is the signal to fetch current state: fetching
+   * before it would leave a window where a change is missed by both the
+   * fetch and the socket.
+   */
+  onReady?: () => void;
+  /**
+   * The connection missed messages. Fetch the current state of whatever is
+   * on screen again; nothing is replayed.
+   */
   onResync?: (room: string) => void;
 };

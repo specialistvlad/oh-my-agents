@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { RealtimeClient, socketUrl } from '@/realtime/client';
+import { RealtimeClient } from '@/realtime/client';
 import type { RealtimeEvent, Status } from '@/realtime/types';
+import { socketUrl } from '@/realtime/url';
 
 /** How many events the live view keeps. Enough to see, small enough to render. */
 const KEEP = 50;
@@ -9,6 +10,16 @@ const KEEP = 50;
 type Live = {
   status: Status;
   events: RealtimeEvent[];
+  /**
+   * Increments whenever the caller should fetch current state: once the
+   * rooms are joined, and again after any resync.
+   *
+   * This is the whole synchronisation model in one number (ADR-0008). There
+   * is no replay and no resume: a consumer refetches what it is showing when
+   * this changes, and otherwise waits. It rises only on join and on resync,
+   * so using it as an effect dependency cannot become a poll.
+   */
+  generation: number;
 };
 
 /**
@@ -22,20 +33,17 @@ export function useRealtime(apiUrl: string, rooms: string[]): Live {
   const client = useMemo(() => new RealtimeClient(socketUrl(apiUrl)), [apiUrl]);
   const [status, setStatus] = useState<Status>('closed');
   const [events, setEvents] = useState<RealtimeEvent[]>([]);
+  const [generation, setGeneration] = useState(0);
 
   useEffect(() => {
+    const bump = () => setGeneration((n) => n + 1);
     const stop = client.listen({
       onStatus: setStatus,
       onEvent: (event) => setEvents((seen) => [event, ...seen].slice(0, KEEP)),
-      // A resync means messages were missed. There is nothing to re-read
-      // from yet, so the honest thing is to show it rather than pretend.
-      onResync: () =>
-        setEvents((seen) =>
-          [{ room: '', seq: 0, kind: 'resync', data: null }, ...seen].slice(
-            0,
-            KEEP
-          )
-        ),
+      // Ready means every room is joined, so nothing that happens from here
+      // can be missed by both the fetch and the socket.
+      onReady: bump,
+      onResync: bump,
     });
     client.start();
     return () => {
@@ -51,5 +59,5 @@ export function useRealtime(apiUrl: string, rooms: string[]): Live {
     return () => joined.forEach((room) => client.leave(room));
   }, [client, key]);
 
-  return { status, events };
+  return { status, events, generation };
 }

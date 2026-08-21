@@ -11,12 +11,10 @@ Several clients watch the same work at once — people in a browser, agents
 reporting progress — and everything has to stay current without anyone asking
 whether it has. Polling is ruled out.
 
-Half the machinery already exists. ADR-0004 gave every change an entry in an
-append-only feed with a monotonic `Seq`, which is exactly what a client needs to
-resume from where it left off. What is missing is that `EventReader.Events` is a
-**pull** interface: the only way to learn something happened is to ask. A socket
-layer built on it would poll internally and we would have moved the polling
-rather than removed it.
+What is missing is not a way to ask. `EventReader.Events` is a **pull**
+interface: the only way to learn that something happened is to go and look. A
+socket layer built on that would poll internally, and we would have moved the
+polling rather than removed it.
 
 So the transport is not the whole decision. Reactive delivery needs a push seam
 on the store, and push across more than one process needs something between
@@ -49,15 +47,30 @@ protocol gives away free. Each is paid for explicitly:
   current one, so the client re-reads and retries rather than guessing what
   happened.
 
-### The event log stays the source of truth
+### State on connect, updates thereafter
 
-The socket delivers; it does not decide. Every frame a client receives
-corresponds to an entry in the feed and carries its `Seq`.
+A client fetches the current state of what it is showing, once, and then lives
+on updates. There is no replay, no resume token, and no history to reconstruct:
+the socket never redelivers what happened before a client cared, and a client
+never refetches something it is already watching.
 
-That is what makes reconnection cheap. A client resumes by naming the last `Seq`
-it handled per room; the server backfills from the store, then switches to live
-delivery. A gap in `Seq` is detectable by the client, and the answer to a gap is
-always the same: backfill from the store.
+**Join first, then fetch.** That order is the whole correctness argument. A
+change during the fetch either lands in the state that comes back, or arrives
+as an event afterwards. Fetching first would leave a window between the read
+and the subscription in which a change is lost and nobody knows it.
+
+Applying an update the fetch already reflects therefore has to be harmless.
+Items carry a `Version` (ADR-0004), so a client discards an event describing a
+version it already holds; anything without a version has to be idempotent.
+
+Recovery is the same move, not a special one. A gap in `Seq`, or a `resync`
+frame, means only "you missed something" — the answer is to fetch the current
+state of what is on screen again, never to ask what happened. One path, used
+on connect and on recovery alike.
+
+The tracker's event feed (ADR-0004) stays what it always was: an activity
+record for people to read. It is not a synchronisation mechanism, and nothing
+here depends on it.
 
 ### A push port on the store
 
@@ -86,19 +99,23 @@ process next door is reached through a channel or a socket.
 
 ### The default needs nothing installed
 
-`Bus` ships with **two implementations from the start**, held to one
-conformance suite per ADR-0005:
+`Bus` has **one implementation: in-memory channels, one process.** It is the
+default, and while the stores underneath still have no cross-process locking it
+is also the only configuration that is actually sound. **`make start` installs
+and runs nothing** — clone, start, open the app, and realtime works.
 
-- **in-memory** — channels, one process. The default.
-- **Valkey** — the BSD-licensed fork of Redis, so the protocol and every client
-  library still apply without the licence. On port 39172, beside the api on
-  39170 and the web app on 39171, so a Valkey or Redis already running for
-  something else cannot be joined by accident.
+**Valkey is the second implementation and is deliberately not built.** Writing
+it now would mean maintaining and testing a path nothing uses, against an
+infrastructure dependency nothing needs, to enable a multi-process
+configuration that is unsafe for other reasons. What exists now is the port,
+which is what makes adding it later an implementation and a config change
+rather than a rewrite. `VALKEY_URL` is reserved for it, and the conformance
+suite is written so a second implementation is held to it the day it appears.
 
-`VALKEY_URL` unset selects the in-memory bus. **`make start` installs and runs
-nothing**: clone the repo, start the server, open the app, and realtime works.
-Valkey is what you turn on when you run more than one process, and turning it
-on is a config change and no code at all.
+When it arrives it will be Valkey — the BSD-licensed fork of Redis, so the
+protocol and every client library still apply without the licence — on port
+39172, beside the api on 39170 and the web app on 39171, so a Valkey or Redis
+already running for something else cannot be joined by accident.
 
 This is a standing rule, not a concession for this one dependency: anything
 external the system later grows — a work queue, a scheduler — arrives with an
@@ -108,7 +125,7 @@ requiring nothing.
 **The bus carries notification, not truth.** A published message is a
 low-latency hint that activity exists; correctness comes from `Seq`. A dropped
 message costs latency, not consistency, because the next one — or a reconnect —
-exposes the gap and the client backfills from the store. This is what makes
+exposes the gap and the client refetches what it is showing. This is what makes
 fire-and-forget pub/sub safe, and the reason not to reach for a broker with
 delivery guarantees.
 
@@ -137,14 +154,16 @@ rather than a stub. The cost is that the in-memory bus is a real implementation
 to be maintained and not a toy: it has to honour ordering and backpressure the
 same way Valkey does, or passing tests against it will mean nothing.
 
-**Two structurally different implementations at last.** Until now ADR-0005's
-conformance suite has only ever had memory-vs-memory to compare, which proves
-little. Channels versus a network round trip is a genuine difference, and it is
-where the suite starts earning its keep.
+**The conformance suite is written for an implementation that does not exist.**
+Until Valkey lands it only ever has memory to compare against itself, which
+proves little. That is accepted: the suite's job today is to write down what a
+bus must do, so the second one is measured against a definition rather than
+against whatever the first happened to do.
 
-**Valkey is opt-in, and the switch has to be exercised.** A path only taken in
-production is a path that breaks in production, so the Valkey bus needs a test
-run in CI against a real instance even though no default configuration uses it.
+**A port with one implementation is an untested claim.** Nothing proves the seam
+is really replaceable until something else sits behind it, and the usual way
+that goes wrong is an interface shaped around its only implementation. The
+narrowness of `Publish`/`Subscribe` is the hedge, not a guarantee.
 
 **Every event costs an ancestor walk** to decide its rooms. Cheap on a shallow
 tree, linear in depth, and depth is unbounded by ADR-0004. If it becomes hot,
@@ -171,6 +190,8 @@ from becoming two behaviours is that both call the same ports and neither
 validates anything itself.
 
 **Backpressure is a real case, not an edge case.** A slow client gets a bounded
-queue; on overflow the server drops its backlog and sends one `resync` frame.
-The client backfills from `Seq` — the same recovery as any other gap, which is
-why there is only one recovery path to get right.
+queue; on overflow the server drops that backlog and sends one `resync` frame.
+Dropping the backlog is not a compromise: the client is about to refetch, so
+everything queued is already superseded. It then refetches what it is showing —
+the same move as on connect, which is why there is only one recovery path to
+get right.

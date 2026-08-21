@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { socketUrl } from './client';
+import { socketUrl } from './url';
 
 describe('socketUrl', () => {
   it('swaps the scheme and appends the endpoint', () => {

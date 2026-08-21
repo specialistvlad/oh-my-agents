@@ -3,13 +3,15 @@
 //
 // It carries notification, not truth (ADR-0008). A message is a low-latency
 // hint; correctness comes from sequence numbers, because a subscriber that
-// falls behind is dropped from rather than blocking the publisher. A gap in
-// [Message.Seq] is the subscriber's signal that it missed something and must
-// re-read from the store.
+// falls behind is dropped from rather than allowed to block the publisher. A
+// gap in [Message.Seq] tells a subscriber it missed something — and the only
+// thing it ever does about that is fetch the current state of what it cares
+// about again. Nothing is replayed, here or anywhere.
 //
-// Two implementations, one conformance suite in bustest: [Memory], which
-// needs nothing installed and is the default, and a Valkey one for when more
-// than one process is running. Nothing above this package knows which it has.
+// [Memory] is the one implementation: in-process, needing nothing installed.
+// A networked one for running several processes is deliberately not built yet
+// (ADR-0008); the port and the conformance suite in bustest exist so that
+// adding it is an implementation rather than a rewrite.
 package bus
 
 import (
@@ -29,13 +31,13 @@ type Message struct {
 	Rooms []Room
 
 	// Seq is assigned by the bus at publish time and increases by one per
-	// message. It exists so a subscriber can tell "nothing has happened"
-	// from "I missed something": a gap means messages were dropped and the
-	// subscriber must resynchronise.
+	// message. Its only job is to let a subscriber tell "nothing has
+	// happened" from "I missed something": a gap means messages were
+	// dropped.
 	//
-	// It is the bus's own ordering and is not a resume token. A client
-	// resumes from the sequence of the event log the payload came from,
-	// which travels inside Data.
+	// It is not a resume token and cannot be used as one. Nothing can be
+	// replayed from it — a subscriber that sees a gap refetches current
+	// state, it does not ask what it missed.
 	Seq uint64
 
 	Kind string
