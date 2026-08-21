@@ -27,6 +27,11 @@ type AppConfig struct {
 	CommitHash      string
 	BuildTime       string
 
+	// AllowedOrigins are the browser origins permitted to open a realtime
+	// socket. A socket is not covered by CORS, so this is the only thing
+	// standing between a page on another site and this server.
+	AllowedOrigins []string
+
 	// SettingsDir is OMA_HOME verbatim, empty when unset.
 	//
 	// It is passed through rather than resolved here on purpose. This

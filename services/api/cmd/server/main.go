@@ -7,8 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/bus"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/config"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/httpserver"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/realtime"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/realtimews"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settings"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settingshttp"
 )
@@ -37,6 +40,22 @@ func run() int {
 	}
 	slog.Info("workspace ready", "dir", store.Dir())
 
+	// The bus is in-memory until VALKEY_URL says otherwise (ADR-0008), so
+	// this runs with nothing installed.
+	messages := bus.NewMemory()
+	defer func() { _ = messages.Close() }()
+
+	hub := realtime.New()
+	ctx, stopHub := context.WithCancel(context.Background())
+	defer stopHub()
+	pump, err := hub.Attach(ctx, messages)
+	if err != nil {
+		slog.Error("cannot attach the realtime hub", "err", err)
+		return 1
+	}
+	go func() { _ = pump() }()
+	slog.Info("realtime ready", "bus", "memory", "origins", app.AllowedOrigins)
+
 	srv, httpErr := httpserver.Start(httpserver.Config{
 		Port:        app.HTTPPort,
 		Prefix:      app.APIPrefix,
@@ -46,7 +65,8 @@ func run() int {
 		Profiling:   app.EnableProfiling,
 		Timeouts:    app.Server.HTTP,
 		Mounts: []httpserver.Mount{
-			{Prefix: "/settings/", Handler: settingshttp.New(store)},
+			{Prefix: "/settings/", Handler: settingshttp.New(store, settingshttp.BusAnnouncer{Bus: messages})},
+			{Prefix: "/ws", Handler: realtimews.New(hub, realtimews.Options{Origins: app.AllowedOrigins})},
 		},
 	})
 	if srv == nil {

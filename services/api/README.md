@@ -36,6 +36,9 @@ Passing it is not the same as being simple.
 | `internal/httpserver`     | Listener, routes, mounts, graceful shutdown.        |
 | `internal/settings`       | Runtime settings, on the filesystem under `.oma`.   |
 | `internal/settingshttp`   | The settings store over HTTP.                       |
+| `internal/bus`            | Fan-out between processes. In-memory; Valkey later. |
+| `internal/realtime`       | Rooms and per-connection queues.                    |
+| `internal/realtimews`     | The realtime hub over a WebSocket.                  |
 | `internal/tracker`        | Task tracker domain model, ports and validation.    |
 | `…/tracker/memory`        | In-memory store. Enforces every invariant itself.   |
 | `…/tracker/trackertest`   | Conformance suite every store must pass.            |

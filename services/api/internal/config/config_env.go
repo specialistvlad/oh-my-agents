@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // FromEnv reads all deploy-time config from environment variables.
@@ -36,11 +37,28 @@ func FromEnv() (AppConfig, error) {
 		HTTPPort:        strconv.Itoa(basePort + instanceIndex),
 		APIPrefix:       os.Getenv("API_PREFIX"),
 		EnableProfiling: enableProfiling,
+		AllowedOrigins:  splitList(getEnv("ALLOWED_ORIGINS", defaultOrigins)),
 		SettingsDir:     os.Getenv("OMA_HOME"),
 		CommitHash:      getEnv("COMMIT_HASH", "unknown"),
 		BuildTime:       getEnv("BUILD_TIME", "unknown"),
 		Server:          defaults,
 	}, nil
+}
+
+// defaultOrigins is where the web app runs in development. Production sets
+// ALLOWED_ORIGINS explicitly; there is no wildcard default, because a
+// permissive one is the kind of thing that survives to production unnoticed.
+const defaultOrigins = "http://localhost:39171,http://127.0.0.1:39171"
+
+// splitList reads a comma-separated env value, ignoring blank entries.
+func splitList(v string) []string {
+	var out []string
+	for _, part := range strings.Split(v, ",") {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 func getEnv(key, fallback string) string {
