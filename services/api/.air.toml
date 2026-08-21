@@ -1,0 +1,17 @@
+root = "."
+tmp_dir = ".air_tmp"
+env_files = ["../../.env"]
+
+[build]
+  cmd = "go build -o .air_tmp/server ./cmd/server"
+  entrypoint = ".air_tmp/server"
+  include_ext = ["go"]
+  exclude_dir = ["vendor", ".air_tmp", "tests"]
+  delay = 500
+  kill_delay = 500
+  rerun = true
+  rerun_delay = 1000
+
+[log]
+  time = false
+  main_only = true

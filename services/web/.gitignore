@@ -1,0 +1,7 @@
+dist/
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
+src/core/routeTree.gen.ts
+.tanstack
+.vite

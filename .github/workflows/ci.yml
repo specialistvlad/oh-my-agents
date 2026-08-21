@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/api/go.mod
+          cache-dependency-path: services/api/go.sum
+
+      # Installed rather than run via golangci-lint-action: `make check-ci`
+      # invokes the linter itself, so CI runs the exact gate developers run.
+      - name: Install linters and test runner
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
+            | sh -s -- -b "$(go env GOPATH)/bin" v2.11.3
+          go install gotest.tools/gotestsum@v1.13.0
+
+      # check-ci is the same gate the Dockerfile's check stage runs: vet,
+      # lint, the file-length limit, unit and feature tests. Component tests
+      # are excluded — they need infrastructure this runner does not have.
+      - name: make check-ci
+        run: make check-ci
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: services/web/package-lock.json
+
+      - run: npm ci
+
+      # Build first: it generates src/core/routeTree.gen.ts, which is
+      # gitignored but needed by the typecheck that `npm run build` chains.
+      - run: npm run build
+      - run: npm run prettier
+      - run: npm run lint
+      - run: npm run test
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [api, web]
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: services/${{ matrix.service }}
+          target: release
+          push: false
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          build-args: |
+            COMMIT_HASH=${{ github.sha }}
