@@ -52,10 +52,16 @@ Every implementation, enforced by itself per ADR-0005 and verified by
 
 ## Implementations
 
-**`FS`** — one file per key at `<root>/settings/<key>.json`, root `.oma` by
-default. Construction and reads touch nothing; the directory appears on first
-write. Writes go to a temp file in the destination directory, are fsynced, then
+**`FS`** — one file per key at `<root>/settings/<key>.json`. The root is the
+`.oma` workspace: `~/.oma` by default, `OMA_HOME` to override, `~` expanded by
+the app and relative paths made absolute at construction (ADR-0007).
+Construction and reads touch nothing; the directory appears on first write.
+Writes go to a temp file in the destination directory, are fsynced, then
 renamed.
+
+`.oma` is the workspace, not the settings store. Settings occupy
+`<root>/settings/`, leaving the root free for whatever else the running system
+needs to keep.
 
 **`Memory`** — a map. The fake tests build on.
 
@@ -86,8 +92,9 @@ the root.
 
 - No cross-process locking.
 - Deleting the last key in a namespace leaves an empty directory.
-- `.oma` is relative to the working directory; the boot log prints the absolute
-  path it resolved.
+- The home directory must be resolvable, or `OMA_HOME` must be set; otherwise
+  the process refuses to start. The boot log prints the absolute path it
+  resolved.
 
 ## Next
 

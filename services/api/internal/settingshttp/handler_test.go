@@ -89,7 +89,7 @@ func TestTraversalIsRefused(t *testing.T) {
 func TestNothingEscapesTheRoot(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "root")
 	outside := filepath.Join(filepath.Dir(root), "escaped.json")
-	h := settingshttp.New(settings.NewFS(root))
+	h := settingshttp.New(mustFS(t, root))
 
 	for _, path := range []string{
 		"/%2e%2e/escaped", "/%2e%2e%2fescaped", "/a/%2e%2e/%2e%2e/escaped", "/../escaped",
@@ -139,11 +139,20 @@ func TestListIsAlwaysAnArray(t *testing.T) {
 // The handler names no storage technology, so the same tests must pass
 // against a store backed by real files.
 func TestServesAFilesystemStoreIdentically(t *testing.T) {
-	h := settingshttp.New(settings.NewFS(t.TempDir()))
+	h := settingshttp.New(mustFS(t, t.TempDir()))
 	if code := do(t, h, http.MethodPut, "/agent/model", `{"m":"opus"}`).Code; code != http.StatusNoContent {
 		t.Fatalf("PUT = %d, want 204", code)
 	}
 	if body := do(t, h, http.MethodGet, "/agent/model", "").Body.String(); body != `{"m":"opus"}` {
 		t.Errorf("GET body = %s, want the stored document", body)
 	}
+}
+
+func mustFS(t *testing.T, dir string) *settings.FS {
+	t.Helper()
+	s, err := settings.NewFS(dir)
+	if err != nil {
+		t.Fatalf("NewFS(%q): %v", dir, err)
+	}
+	return s
 }

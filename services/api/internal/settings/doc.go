@@ -11,8 +11,8 @@
 // [Read] and [Write] helpers, so the interface an adapter implements stays
 // three methods wide no matter how many types callers store through it.
 //
-// Two implementations ship: [FS], which keeps documents under a directory —
-// .oma in the working directory by default — and [Memory], for tests. Both
+// Two implementations ship: [FS], which keeps documents under the workspace
+// directory — .oma in the user's home by default — and [Memory], for tests. Both
 // are held to the same guarantees by the suite in settingstest, because a
 // seam nobody verifies is a claim rather than a fact (ADR-0002, ADR-0005).
 package settings

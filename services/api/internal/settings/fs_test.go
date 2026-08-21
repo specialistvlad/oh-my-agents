@@ -11,22 +11,72 @@ import (
 
 func TestFSConformance(t *testing.T) {
 	settingstest.Run(t, func(t *testing.T) settings.Store {
-		return settings.NewFS(t.TempDir())
+		s, err := settings.NewFS(t.TempDir())
+		if err != nil {
+			t.Fatalf("NewFS: %v", err)
+		}
+		return s
 	})
 }
 
-func TestFSDefaultsToDotOma(t *testing.T) {
-	if got := settings.NewFS("").Dir(); got != settings.DefaultDir {
-		t.Errorf("Dir = %q, want %q", got, settings.DefaultDir)
+func TestFSDefaultsToDotOmaInTheUserHome(t *testing.T) {
+	if settings.DirName != ".oma" {
+		t.Errorf("DirName = %q, want .oma", settings.DirName)
 	}
-	if settings.DefaultDir != ".oma" {
-		t.Errorf("DefaultDir = %q, want .oma", settings.DefaultDir)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("no home directory on this host: %v", err)
+	}
+	want := filepath.Join(home, ".oma")
+
+	def, err := settings.DefaultDir()
+	if err != nil {
+		t.Fatalf("DefaultDir: %v", err)
+	}
+	if def != want {
+		t.Errorf("DefaultDir = %q, want %q", def, want)
+	}
+
+	s, err := settings.NewFS("")
+	if err != nil {
+		t.Fatalf("NewFS(\"\"): %v", err)
+	}
+	if s.Dir() != want {
+		t.Errorf("NewFS(\"\").Dir = %q, want %q", s.Dir(), want)
+	}
+}
+
+func TestFSExpandsTildeAndRelativePaths(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("no home directory on this host: %v", err)
+	}
+	// A container hands OMA_HOME over with no shell to expand it.
+	s, err := settings.NewFS("~/workspace")
+	if err != nil {
+		t.Fatalf("NewFS: %v", err)
+	}
+	if want := filepath.Join(home, "workspace"); s.Dir() != want {
+		t.Errorf("Dir = %q, want %q", s.Dir(), want)
+	}
+
+	// A relative override is bound to the startup directory, absolutely, so
+	// a later chdir cannot move the workspace out from under the process.
+	rel, err := settings.NewFS("./local-oma")
+	if err != nil {
+		t.Fatalf("NewFS: %v", err)
+	}
+	if !filepath.IsAbs(rel.Dir()) {
+		t.Errorf("Dir = %q, want an absolute path", rel.Dir())
 	}
 }
 
 func TestFSCreatesNothingUntilWritten(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "root")
-	s := settings.NewFS(dir)
+	s, err := settings.NewFS(dir)
+	if err != nil {
+		t.Fatalf("NewFS: %v", err)
+	}
 
 	if _, err := s.Keys(t.Context()); err != nil {
 		t.Fatalf("Keys: %v", err)
@@ -45,7 +95,10 @@ func TestFSCreatesNothingUntilWritten(t *testing.T) {
 
 func TestFSStoresOneReadableFilePerKey(t *testing.T) {
 	dir := t.TempDir()
-	s := settings.NewFS(dir)
+	s, err := settings.NewFS(dir)
+	if err != nil {
+		t.Fatalf("NewFS: %v", err)
+	}
 	if err := s.Set(t.Context(), "agent/model", settings.Document(`{"m":"opus"}`)); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
@@ -64,7 +117,10 @@ func TestFSStoresOneReadableFilePerKey(t *testing.T) {
 
 func TestFSLeavesNoTempFilesBehind(t *testing.T) {
 	dir := t.TempDir()
-	s := settings.NewFS(dir)
+	s, err := settings.NewFS(dir)
+	if err != nil {
+		t.Fatalf("NewFS: %v", err)
+	}
 	for range 3 {
 		if err := s.Set(t.Context(), "k", settings.Document(`{"v":1}`)); err != nil {
 			t.Fatalf("Set: %v", err)

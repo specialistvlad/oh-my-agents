@@ -20,11 +20,15 @@ func TestSettingsSurviveThroughTheServer(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
+	store, err := settings.NewFS(dir)
+	if err != nil {
+		t.Fatalf("NewFS: %v", err)
+	}
 	srv, errCh := httpserver.Start(httpserver.Config{
 		Port:     "0",
 		Timeouts: config.DefaultServerConfig().HTTP,
 		Mounts: []httpserver.Mount{
-			{Prefix: "/settings/", Handler: settingshttp.New(settings.NewFS(dir))},
+			{Prefix: "/settings/", Handler: settingshttp.New(store)},
 		},
 	})
 	if srv == nil {
@@ -50,7 +54,11 @@ func TestSettingsSurviveThroughTheServer(t *testing.T) {
 
 	// A second store over the same directory sees it: the setting is on
 	// disk, not in the first store's memory.
-	got, err := settings.Read[map[string]string](t.Context(), settings.NewFS(dir), "agent/model")
+	fresh, err := settings.NewFS(dir)
+	if err != nil {
+		t.Fatalf("NewFS: %v", err)
+	}
+	got, err := settings.Read[map[string]string](t.Context(), fresh, "agent/model")
 	if err != nil {
 		t.Fatalf("reading through a fresh store: %v", err)
 	}

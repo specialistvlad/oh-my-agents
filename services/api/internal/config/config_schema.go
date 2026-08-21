@@ -27,8 +27,13 @@ type AppConfig struct {
 	CommitHash      string
 	BuildTime       string
 
-	// SettingsDir is the root the settings store writes under, ".oma" in
-	// the working directory unless OMA_HOME says otherwise.
+	// SettingsDir is OMA_HOME verbatim, empty when unset.
+	//
+	// It is passed through rather than resolved here on purpose. This
+	// package reads env and nothing else; the workspace owns where .oma
+	// lives, what its default is, and how "~" expands. The two config
+	// sources — env at boot, the .oma folder at runtime — stay independent,
+	// and this string is the only thing that passes between them.
 	SettingsDir string
 
 	Server ServerConfig

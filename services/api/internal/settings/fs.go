@@ -12,9 +12,47 @@ import (
 	"sync"
 )
 
-// DefaultDir is where settings live when nothing says otherwise: a .oma
-// directory beside whatever the process was started in.
-const DefaultDir = ".oma"
+// DirName is the workspace folder's name wherever it appears.
+const DirName = ".oma"
+
+// DefaultDir is where the workspace lives when nothing overrides it: .oma in
+// the user's home directory, so every project on the machine shares one
+// workspace rather than scattering a folder per working directory.
+//
+// It is a function, not a constant, because the answer depends on the user
+// the process runs as and cannot be baked in at compile time.
+func DefaultDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("settings: locate home directory: %w", err)
+	}
+	return filepath.Join(home, DirName), nil
+}
+
+// resolveDir turns a configured directory into an absolute path. An empty
+// value means [DefaultDir]; a leading "~" is expanded here rather than left
+// to a shell, because the value often arrives from a container's environment
+// where nothing has expanded it.
+func resolveDir(dir string) (string, error) {
+	switch {
+	case dir == "":
+		var err error
+		if dir, err = DefaultDir(); err != nil {
+			return "", err
+		}
+	case dir == "~" || strings.HasPrefix(dir, "~/"):
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("settings: expand %q: %w", dir, err)
+		}
+		dir = filepath.Join(home, strings.TrimPrefix(dir, "~"))
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("settings: resolve %q: %w", dir, err)
+	}
+	return abs, nil
+}
 
 // subdir keeps settings in their own corner of the root, leaving .oma free
 // to hold other things later without a migration.
@@ -36,16 +74,23 @@ type FS struct {
 	mu   sync.RWMutex
 }
 
-// NewFS returns a store rooted at dir. An empty dir means [DefaultDir].
-func NewFS(dir string) *FS {
-	if dir == "" {
-		dir = DefaultDir
+// NewFS returns a store rooted at dir, which is resolved to an absolute path
+// immediately: an empty value becomes [DefaultDir], a leading "~" is
+// expanded, and a relative path is bound to the current working directory.
+//
+// A store that cannot work out where to write says so now rather than at the
+// first write, which is the difference between a failed boot and a confusing
+// runtime error.
+func NewFS(dir string) (*FS, error) {
+	root, err := resolveDir(dir)
+	if err != nil {
+		return nil, err
 	}
-	return &FS{root: dir}
+	return &FS{root: root}, nil
 }
 
-// Dir reports the root this store writes under, for logging what a process
-// resolved at boot.
+// Dir reports the absolute root this store writes under, so a process can log
+// what it resolved at boot.
 func (s *FS) Dir() string { return s.root }
 
 // Get implements [Reader].
