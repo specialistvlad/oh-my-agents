@@ -106,10 +106,11 @@ to discover one. Existence has one source of truth rather than two.
 parameter is always passed correctly; rooting removes the parameter. This is the
 main thing bought, and it is bought at the design level rather than by care.
 
-**The registry is a single point of failure**, and deliberately so. Lose it and
-projects still exist on disk but nothing can find them, which is the cost of
-having one answer to "what projects are there" instead of a directory scan that
-disagrees with a file.
+**Registry writes inherit the settings store's limits.** The registry lives in
+the shared scope, and that store has no cross-process locking (ADR-0006). Two
+processes creating a project at the same moment can lose one of the records —
+and unlike a lost setting, a lost record makes a directory full of work
+undiscoverable.
 
 **A root outside the workspace is not the workspace's to trust.** It can vanish,
 sit on another filesystem, arrive through a git merge with conflict markers in
@@ -123,11 +124,13 @@ called something else. The mitigation is that nothing in the system may read a
 stem — and that is a rule, which means it will need enforcing in review rather
 than by the compiler.
 
-**Migration is required and is not free.** The tracker's fixtures, the
-conformance suite and the settings layout all assume a flat, unscoped world with
-readable keys. None of it is deployed, so this is the cheapest this change will
-ever be — which is the argument for making it now rather than the argument that
-it is small.
+**Nothing to migrate; a fair amount to rewrite.** No data exists — no durable
+tracker adapter has been built, and settings has only ever written to a
+developer's machine. The cost is entirely code: 27 files name a schema-key type,
+13 hardcode a readable key, the 81-assertion conformance suite and its fixtures
+are written in `bug` and `open`, and four files carry the HTTP paths and wiring
+that gain a project. That is a day's mechanical refactor with a test suite
+holding it upright, not a data problem.
 
 **Two addressing styles are gone.** Everything is a minted ID, so there is one
 rule to learn and one shape to validate, and the question "is this a key or an
