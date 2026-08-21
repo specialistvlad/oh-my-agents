@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/pprof"
+	"strings"
 )
 
 // newHandler builds the mux. Unexported at package scope so tests can
@@ -25,6 +26,11 @@ func newHandler(cfg Config) http.Handler {
 				"environment_name: %s\n",
 			cfg.Commit, cfg.BuildTime, cfg.Environment)
 	})
+
+	for _, m := range cfg.Mounts {
+		at := cfg.Prefix + m.Prefix
+		mux.Handle(at, http.StripPrefix(strings.TrimSuffix(at, "/"), m.Handler))
+	}
 
 	// Profiling exposes runtime/heap detail and an unauthenticated CPU
 	// profile is a DoS lever, so it stays opt-in. Mounted at the standard

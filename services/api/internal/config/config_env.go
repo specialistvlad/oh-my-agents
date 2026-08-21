@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/settings"
 )
 
 // FromEnv reads all deploy-time config from environment variables.
@@ -36,6 +38,7 @@ func FromEnv() (AppConfig, error) {
 		HTTPPort:        strconv.Itoa(basePort + instanceIndex),
 		APIPrefix:       os.Getenv("API_PREFIX"),
 		EnableProfiling: enableProfiling,
+		SettingsDir:     getEnv("OMA_HOME", settings.DefaultDir),
 		CommitHash:      getEnv("COMMIT_HASH", "unknown"),
 		BuildTime:       getEnv("BUILD_TIME", "unknown"),
 		Server:          defaults,

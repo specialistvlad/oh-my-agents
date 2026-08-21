@@ -27,5 +27,9 @@ type AppConfig struct {
 	CommitHash      string
 	BuildTime       string
 
+	// SettingsDir is the root the settings store writes under, ".oma" in
+	// the working directory unless OMA_HOME says otherwise.
+	SettingsDir string
+
 	Server ServerConfig
 }

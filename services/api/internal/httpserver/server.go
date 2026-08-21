@@ -29,7 +29,21 @@ type Config struct {
 	Environment string
 	Profiling   bool // mount /debug/pprof/* (opt-in)
 
+	// Mounts are the application's own handlers. Keeping them a parameter
+	// is what lets this package stay infrastructure: it serves whatever it
+	// is handed and knows nothing about what any of it does.
+	Mounts []Mount
+
 	Timeouts config.HTTPCfg
+}
+
+// Mount attaches a handler to a subtree. Prefix is relative to Config.Prefix
+// and must start and end with "/", e.g. "/settings/". The handler sees paths
+// with the prefix stripped, so it registers relative patterns and does not
+// care where it was mounted.
+type Mount struct {
+	Prefix  string
+	Handler http.Handler
 }
 
 // Start binds a listener (probing upward on EADDRINUSE), serves in a
