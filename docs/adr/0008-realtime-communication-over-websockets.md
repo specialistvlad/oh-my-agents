@@ -68,20 +68,49 @@ and it is where ADR-0002's layering first gets genuinely hard: a filesystem
 store can notify subscribers inside its own process, and cannot tell another
 process anything at all.
 
-### A broker from the start
+### The whole path is layered
 
-Processes learn about each other's writes through **Valkey** pub/sub — the
-BSD-licensed fork of Redis, so the protocol and every client library still
-apply, without the licence. It listens on a port of its own (39172, beside the
-api on 39170 and the web app on 39171) so a Valkey or Redis already running for
-something else cannot be joined by accident.
+Four seams, each a port, none naming a technology above it:
 
-**The broker carries notification, not truth.** A published message is a
+| Seam          | Question it answers                       | Implementations     |
+| ------------- | ----------------------------------------- | ------------------- |
+| `EventSource` | what just happened in this process        | the store, on write |
+| `Bus`         | what just happened in the other processes | in-memory, Valkey   |
+| `Hub`         | which connections care                    | rooms               |
+| `Transport`   | how bytes reach a client                  | WebSocket           |
+
+`Bus` is the one that would otherwise leak infrastructure upwards, so it is
+kept narrow — read it as `Publish(ctx, Event) error` and
+`Subscribe(ctx) (<-chan Event, error)`. Nothing above it knows whether the
+process next door is reached through a channel or a socket.
+
+### The default needs nothing installed
+
+`Bus` ships with **two implementations from the start**, held to one
+conformance suite per ADR-0005:
+
+- **in-memory** — channels, one process. The default.
+- **Valkey** — the BSD-licensed fork of Redis, so the protocol and every client
+  library still apply without the licence. On port 39172, beside the api on
+  39170 and the web app on 39171, so a Valkey or Redis already running for
+  something else cannot be joined by accident.
+
+`VALKEY_URL` unset selects the in-memory bus. **`make start` installs and runs
+nothing**: clone the repo, start the server, open the app, and realtime works.
+Valkey is what you turn on when you run more than one process, and turning it
+on is a config change and no code at all.
+
+This is a standing rule, not a concession for this one dependency: anything
+external the system later grows — a work queue, a scheduler — arrives with an
+in-memory implementation beside it, and the default configuration keeps
+requiring nothing.
+
+**The bus carries notification, not truth.** A published message is a
 low-latency hint that activity exists; correctness comes from `Seq`. A dropped
 message costs latency, not consistency, because the next one — or a reconnect —
 exposes the gap and the client backfills from the store. This is what makes
-fire-and-forget pub/sub safe here, and it is the reason not to reach for a
-broker with delivery guarantees.
+fire-and-forget pub/sub safe, and the reason not to reach for a broker with
+delivery guarantees.
 
 ### Rooms address the tree
 
@@ -102,12 +131,20 @@ gone. Deletion is computed before the item disappears, for the same reason.
 
 ## Consequences
 
-**Valkey becomes the first required infrastructure.** A project that needed
-nothing to run now needs something, in development as well as deployment. That
-is the price of choosing horizontal scale before it is needed, taken knowingly.
-The non-default port keeps it from colliding with anything already on the
-machine, which matters more here than usual: joining a stranger's Redis would
-look like events silently going missing.
+**Nothing is required to run, and that is load-bearing.** A contributor gets a
+working realtime system from a clone, and every test exercises the real bus
+rather than a stub. The cost is that the in-memory bus is a real implementation
+to be maintained and not a toy: it has to honour ordering and backpressure the
+same way Valkey does, or passing tests against it will mean nothing.
+
+**Two structurally different implementations at last.** Until now ADR-0005's
+conformance suite has only ever had memory-vs-memory to compare, which proves
+little. Channels versus a network round trip is a genuine difference, and it is
+where the suite starts earning its keep.
+
+**Valkey is opt-in, and the switch has to be exercised.** A path only taken in
+production is a path that breaks in production, so the Valkey bus needs a test
+run in CI against a real instance even though no default configuration uses it.
 
 **Every event costs an ancestor walk** to decide its rooms. Cheap on a shallow
 tree, linear in depth, and depth is unbounded by ADR-0004. If it becomes hot,
@@ -120,11 +157,12 @@ more" is delivered as intent now and as a property only once auth exists.
 Authentication is a prerequisite of exposing this beyond a trusted network, and
 is the largest open risk in this decision.
 
-**A broker fixes fan-out, not shared storage.** Processes can now tell each
-other what happened, but the stores underneath still have no cross-process
-locking — settings says so explicitly, and the tracker's filesystem adapter does
-not exist yet. Running two processes against one workspace remains unsafe for
-reasons this ADR does not address.
+**Turning Valkey on fixes fan-out, not shared storage.** It lets processes tell
+each other what happened; it does nothing about the stores underneath, which
+have no cross-process locking — settings says so explicitly, and the tracker's
+filesystem adapter does not exist yet. So the multi-process configuration this
+bus enables is not yet safe for reasons this ADR does not address, and the
+single-process default is the only one currently sound end to end.
 
 **Two edges must be kept honest.** HTTP stays, for scripts, for anything that
 cannot hold a socket, and because a request/response API is easier to debug.
