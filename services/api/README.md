@@ -2,29 +2,30 @@
 
 Go backend for oh-my-agents.
 
-## Core principle
+## Core principles
 
-**All backend code must be very simple, and composed/aggregated.**
+Three rules govern everything here. The reasoning and the fine print are in the
+ADRs; this is the short form.
 
-Every unit does one obvious thing. Behaviour comes from wiring small units
-together — never from one of them growing clever. When something gets hard to
-follow, the fix is to split it and compose the pieces, not to add another
-branch.
+1. **Simple, composed and aggregated** — [ADR-0001](../../docs/adr/0001-simple-composed-backend-code.md).
+   Every unit does one obvious thing, and behaviour comes from wiring small
+   units together. When something gets hard to follow, split it and compose;
+   never add another branch.
 
-In practice:
+2. **Layered, so any implementation is replaceable** — [ADR-0002](../../docs/adr/0002-layered-replaceable-implementations.md).
+   Swapping the database for plain files on disk must be a change in `cmd/` and
+   nowhere else. Logic depends on interfaces the consumer owns; only domain
+   types cross a port; every port has a real implementation and an in-memory
+   fake.
 
-- Small functions, small files, small packages — one responsibility each.
-- Build features by aggregating existing units; reach for a new abstraction
-  only after the composition is genuinely awkward.
-- Prefer plain composition — a function handed exactly what it needs — over
-  frameworks, reflection, or inheritance-shaped indirection.
-- `cmd/` wires, `internal/` computes. Keep assembly at the edges.
-- The boring version wins.
+3. **Interfaces and objects are first class, amended for Go** — [ADR-0003](../../docs/adr/0003-interfaces-and-objects-first-class.md).
+   Behaviour belongs to a type that owns its state. No inheritance, small
+   interfaces, accept interfaces and return concrete types, wire by hand in
+   `cmd/`.
 
-`make check` enforces a floor for this: no non-test file over 250 lines, no
-function over 100 lines or 60 statements, no cyclomatic or cognitive
-complexity over 30. Passing those is not the same as being simple — they catch
-the failure, they do not define the standard.
+`make check` enforces a floor for the first rule: no non-test file over 250
+lines, no function over 100 lines or 60 statements, no complexity over 30.
+Passing it is not the same as being simple.
 
 ## Layout
 
