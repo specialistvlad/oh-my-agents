@@ -36,7 +36,7 @@ start-web: ## Run the web ui only
 check: ## Run every check for both services in parallel (fails if either fails)
 	@set -o pipefail; \
 	_dir=$$(mktemp -d); trap 'rm -rf $$_dir' EXIT; \
-	echo "▸ checking 2 services in parallel (output captured per service, dumped on completion)"; \
+	echo "▸ checking 2 services and the docs in parallel (output captured per service, dumped on completion)"; \
 	echo ""; \
 	step() { \
 		local id="$$1" label="$$2"; shift 2; \
@@ -50,11 +50,12 @@ check: ## Run every check for both services in parallel (fails if either fails)
 		if [ "$$rc" -eq 0 ]; then echo "[done]  $$label ($$(cat $$_dir/$$id.dur)s)"; \
 		else echo "[FAIL]  $$label ($$(cat $$_dir/$$id.dur)s, rc=$$rc)"; fi; \
 	}; \
-	step api "api  (make check)"     $(MAKE) -C $(API) check & \
-	step web "web  (npm run check)"  $(MAKE) -C $(WEB) check & \
+	step api  "api  (make check)"      $(MAKE) -C $(API) check & \
+	step web  "web  (npm run check)"   $(MAKE) -C $(WEB) check & \
+	step docs "docs (index + links)"   python3 scripts/check-docs.py & \
 	wait; \
 	echo ""; \
-	for id in api web; do \
+	for id in api web docs; do \
 		echo "════════════════════════════════════════"; \
 		echo "  $$(cat $$_dir/$$id.label)"; \
 		echo "════════════════════════════════════════"; \
@@ -65,7 +66,7 @@ check: ## Run every check for both services in parallel (fails if either fails)
 	echo "═══════════════════════════════════════"; \
 	echo "  make check — summary"; \
 	echo "═══════════════════════════════════════"; \
-	for id in api web; do \
+	for id in api web docs; do \
 		rc=$$(cat "$$_dir/$$id.rc"); dur=$$(cat "$$_dir/$$id.dur"); label=$$(cat "$$_dir/$$id.label"); \
 		mark="✓"; if [ "$$rc" != "0" ]; then mark="✗"; _failed=1; fi; \
 		printf "  %s %s (%ss)\n" "$$mark" "$$label" "$$dur"; \
