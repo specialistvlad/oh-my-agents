@@ -9,7 +9,7 @@ const envDir = '../..';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, envDir, '');
-  const port = Number(env.WEB_PORT ?? 39171);
+  const port = Number(env.WEB_PORT ?? 39180);
 
   return {
     envDir,

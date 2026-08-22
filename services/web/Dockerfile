@@ -32,4 +32,4 @@ ARG BUILD_TIME=unknown
 RUN printf 'app_name: oh-my-agents-web\ncommit_hash: %s\nbuild_time: %s\n' \
     "${COMMIT_HASH}" "${BUILD_TIME}" > /usr/share/nginx/html/build-info.txt
 
-EXPOSE 39171
+EXPOSE 39180

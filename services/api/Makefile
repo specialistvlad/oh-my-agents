@@ -24,8 +24,13 @@ install: ## Download and verify module dependencies
 # ─── Run ──────────────────────────────────────────────────────────────────────
 
 .PHONY: start
-start: ## Run the API with hot reload
-	@$(AIR) -c .air.toml
+start: ## Run the API, with hot reload if air is installed
+	@if [ -x "$(AIR)" ]; then \
+		$(AIR) -c .air.toml; \
+	else \
+		echo "air not installed — running without hot reload (make setup installs it)"; \
+		$(MAKE) -s run; \
+	fi
 
 .PHONY: dev
 dev: start ## Alias for start

@@ -48,7 +48,7 @@ func FromEnv() (AppConfig, error) {
 // defaultOrigins is where the web app runs in development. Production sets
 // ALLOWED_ORIGINS explicitly; there is no wildcard default, because a
 // permissive one is the kind of thing that survives to production unnoticed.
-const defaultOrigins = "http://localhost:39171,http://127.0.0.1:39171"
+const defaultOrigins = "http://localhost:39180,http://127.0.0.1:39180"
 
 // splitList reads a comma-separated env value, ignoring blank entries.
 func splitList(v string) []string {

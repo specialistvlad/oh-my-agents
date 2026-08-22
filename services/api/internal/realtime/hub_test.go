@@ -114,31 +114,125 @@ func TestEveryJoinedConnectionReceives(t *testing.T) {
 	}
 }
 
-// A client too far behind is told to resynchronise rather than silently
-// missing a message: behind but correct beats up to date but wrong.
-func TestFloodedConnectionIsToldToResync(t *testing.T) {
+// Two different things can make a connection miss messages, and each has its
+// own path to a resync. They are tested apart because a flood exercises both
+// at once, which let one of them break silently.
+
+// The hub itself fell behind: the bus dropped messages before the hub saw
+// them, leaving a gap in Seq. The hub cannot know what it missed or who it
+// concerned, so every connection is told to resynchronise.
+//
+// The gap is scripted rather than provoked. Flooding a real bus and hoping it
+// drops is a race — under load the publisher is descheduled, the hub catches
+// up, and no gap ever happens — so the subscriber is faked and the sequence
+// numbers simply skip.
+func TestAGapInTheBusResyncsEveryConnection(t *testing.T) {
+	scripted := &scriptedBus{messages: make(chan bus.Message, 4)}
+	h := realtime.New()
+	ctx, cancel := context.WithCancel(t.Context())
+	pump, err := h.Attach(ctx, scripted)
+	if err != nil {
+		t.Fatalf("Attach: %v", err)
+	}
+	done := make(chan struct{})
+	go func() { defer close(done); _ = pump() }()
+	t.Cleanup(func() {
+		cancel()
+		close(scripted.messages)
+		<-done
+	})
+
+	c := h.Connect()
+	c.Join("room")
+
+	scripted.messages <- bus.Message{Seq: 1, Rooms: []bus.Room{"room"}, Kind: "first"}
+	scripted.messages <- bus.Message{Seq: 5, Rooms: []bus.Room{"room"}, Kind: "after a gap"}
+
+	if !awaitResync(t, c) {
+		t.Error("a gap in the sequence never produced a resync")
+	}
+}
+
+// scriptedBus lets a test hand the hub exactly the sequence it should see.
+type scriptedBus struct{ messages chan bus.Message }
+
+func (s *scriptedBus) Subscribe(context.Context) (<-chan bus.Message, error) {
+	return s.messages, nil
+}
+
+// awaitResync reads until a resync arrives or time runs out. Only safe where
+// reading cannot itself prevent what is being tested.
+func awaitResync(t *testing.T, c *realtime.Conn) bool {
+	t.Helper()
+	deadline := time.Now().Add(wait)
+	for time.Now().Before(deadline) {
+		select {
+		case d, open := <-c.Out():
+			if !open {
+				t.Fatal("the connection closed before any resync arrived")
+			}
+			if d.Resync {
+				return true
+			}
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	return false
+}
+
+// The connection itself fell behind: the hub kept up, but this client stopped
+// reading and its queue filled. Publishing stays under what the bus buffers,
+// so there is no gap and only the queue can be the cause.
+func TestAFullConnectionQueueResyncs(t *testing.T) {
 	h, b := running(t)
 	c := h.Connect()
 	c.Join("room")
 
-	for range 5000 {
-		publish(t, b, "room", "flood")
+	// Under the bus's per-subscriber buffer so nothing is dropped there,
+	// and well over the connection's own queue so that one overflows.
+	for range 200 {
+		publish(t, b, "room", "steady")
 	}
-	sawResync := false
-	for range 5000 {
-		select {
-		case d := <-c.Out():
-			if d.Resync {
-				sawResync = true
+	// Let the queue fill before reading a single message. Reading while the
+	// hub is still delivering drains it as fast as it fills, so it never
+	// reaches capacity and the very thing being tested never happens.
+	settle(t, c)
+	if !drainForResync(c) {
+		t.Error("a connection whose queue filled was never told to resync")
+	}
+}
+
+// settle waits until the connection's queue stops changing, so a test can be
+// sure the hub has finished delivering without consuming anything.
+func settle(t *testing.T, c *realtime.Conn) {
+	t.Helper()
+	deadline := time.Now().Add(wait)
+	steady, last := 0, -1
+	for time.Now().Before(deadline) {
+		if n := len(c.Out()); n == last {
+			if steady++; steady >= 3 {
+				return
 			}
-		default:
+		} else {
+			steady, last = 0, n
 		}
-		if sawResync {
-			break
-		}
+		time.Sleep(20 * time.Millisecond)
 	}
-	if !sawResync {
-		t.Error("a connection that fell far behind was never told to resync")
+}
+
+// drainForResync empties the queue, reporting whether a resync was in it.
+func drainForResync(c *realtime.Conn) bool {
+	found := false
+	for {
+		select {
+		case d, open := <-c.Out():
+			if !open {
+				return found
+			}
+			found = found || d.Resync
+		default:
+			return found
+		}
 	}
 }
 
