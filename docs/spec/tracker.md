@@ -192,11 +192,27 @@ dropped. Without it a project has a tracker that can hold nothing, since an
 item needs a type. Seeding runs only on an empty schema, so a deleted starter
 type stays deleted.
 
+## The frontend
+
+A project's items are fetched when its room is joined and thereafter
+maintained from events.
+
+**A tracker event names the item it concerns but does not carry it**, unlike a
+project event. The feed is an activity record rather than a copy of the data
+(ADR-0008), so a client hearing about an item fetches that one item: a targeted
+read, not a poll, because nothing happens while nothing changes. A deletion
+needs no fetch, since the kind already says everything there is to know.
+
+The UI offers only the moves a type declares. Showing every status would
+produce buttons that always fail, so the workflow decides what is on screen —
+and a status's colour comes from its category, never its id, because a name can
+change while what it means does not.
+
 ## Next
 
-1. **A frontend** showing a project's items, fed by the events already
-   reaching its room.
-2. **Links and the event feed** over HTTP, when something needs them.
+1. **Links and the event feed** over HTTP, when something needs them.
+2. **The ADR-0011 workspace shell** — three columns, an objects tree, an
+   inspector. There are now objects to put in it.
 
 ## Open questions
 

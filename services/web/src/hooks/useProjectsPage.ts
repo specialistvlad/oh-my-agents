@@ -12,6 +12,7 @@ import type { Project } from '@/projects/types';
  */
 export function useProjectsPage() {
   const [draft, setDraft] = useState('');
+  const [itemDraft, setItemDraft] = useState('');
   const [editing, setEditing] = useState<Project | null>(null);
   const [editName, setEditName] = useState('');
   const [confirming, setConfirming] = useState<Project | null>(null);
@@ -34,6 +35,8 @@ export function useProjectsPage() {
   return {
     draft,
     setDraft,
+    itemDraft,
+    setItemDraft,
     editing,
     editName,
     setEditName,

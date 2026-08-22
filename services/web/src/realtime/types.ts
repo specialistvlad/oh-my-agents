@@ -34,6 +34,30 @@ export type Inbound =
       id: string;
       project: string;
       idempotency: string;
+    }
+  | {
+      type: 'item.create';
+      id: string;
+      project: string;
+      idempotency: string;
+      body: unknown;
+    }
+  | {
+      type: 'item.update';
+      id: string;
+      project: string;
+      item: string;
+      version: number;
+      idempotency: string;
+      body: unknown;
+    }
+  | {
+      type: 'item.delete';
+      id: string;
+      project: string;
+      item: string;
+      version: number;
+      idempotency: string;
     };
 
 export type Outbound = {
