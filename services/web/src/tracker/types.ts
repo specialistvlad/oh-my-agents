@@ -1,5 +1,35 @@
 /** Mirrors services/api/internal/tracker. */
 
+/**
+ * A field's value, mirroring value_json.go's envelope.
+ *
+ * Kind and value always agree, because the api will not build one where they
+ * do not — a stored value whose payload contradicts its kind is refused on
+ * load rather than becoming a value whose kind lies.
+ */
+export type Value = {
+  kind: FieldKind;
+  value: unknown;
+};
+
+export type FieldKind =
+  | 'text'
+  | 'markdown'
+  | 'number'
+  | 'bool'
+  | 'date'
+  | 'duration'
+  | 'select'
+  | 'multi_select'
+  | 'actor'
+  | 'item'
+  | 'url';
+
+export type Actor = {
+  kind: 'human' | 'agent' | 'system';
+  id: string;
+};
+
 export type Item = {
   id: string;
   type: string;
@@ -7,6 +37,8 @@ export type Item = {
   body: string;
   status: string;
   parent: string | null;
+  /** Values for the fields this item's type declares, keyed by field id. */
+  fields: Record<string, Value>;
   version: number;
   created_at: string;
   updated_at: string;
@@ -23,9 +55,24 @@ export type Status = {
 
 export type Transition = { from: string; to: string };
 
+export type Option = {
+  id: string;
+  name: string;
+};
+
+export type FieldDef = {
+  id: string;
+  name: string;
+  description?: string;
+  kind: FieldKind;
+  required?: boolean;
+  options?: Option[];
+};
+
 export type ItemType = {
   id: string;
   name: string;
+  fields?: FieldDef[];
   statuses: Status[];
   initial: string;
   transitions: Transition[];
@@ -75,4 +122,15 @@ export function statusOf(
   id: string
 ): Status | undefined {
   return type?.statuses.find((s) => s.id === id);
+}
+
+/** The fields a type declares, paired with whatever the item holds for each. */
+export function fieldsOf(
+  type: ItemType | undefined,
+  item: Item
+): Array<{ def: FieldDef; value: Value | undefined }> {
+  return (type?.fields ?? []).map((def) => ({
+    def,
+    value: item.fields?.[def.id],
+  }));
 }

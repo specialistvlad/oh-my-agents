@@ -2,8 +2,8 @@ package tracker
 
 import (
 	"fmt"
-	"regexp"
-	"strings"
+
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/ids"
 )
 
 // Identifiers are distinct string types rather than bare strings so that a
@@ -37,54 +37,19 @@ type (
 	OptionID string
 )
 
-// minted is the shape every schema identifier takes: a readable stem, a
-// hyphen, and a suffix. Deliberately narrow, so an id is always safe as both
-// a path segment and a URL segment.
-var minted = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-
-// maxIDLen keeps an id inside the path limits of any filesystem it lands on.
-const maxIDLen = 128
-
-// Mint builds an identifier from a name and a nonce.
+// Mint builds a schema identifier from a name. The nonce is what makes it
+// unique; the stem is what makes it readable (ADR-0009).
 //
-// A name with nothing usable in it — punctuation, or a script this reduction
-// does not handle — still gets an id, because the nonce alone addresses it
-// and refusing the name would be worse.
-func Mint(name, nonce string) string {
-	stem := stemOf(name)
-	if stem == "" {
-		return "x-" + nonce
-	}
-	return stem + "-" + nonce
-}
-
-// maxStemLen bounds the readable half, so a long name still yields a
-// manageable id.
-const maxStemLen = 40
-
-var notStem = regexp.MustCompile(`[^a-z0-9]+`)
-
-func stemOf(name string) string {
-	stem := notStem.ReplaceAllString(strings.ToLower(name), "-")
-	stem = strings.Trim(stem, "-")
-	if len(stem) > maxStemLen {
-		stem = strings.Trim(stem[:maxStemLen], "-")
-	}
-	return stem
-}
+// The nonce is a parameter rather than generated here so a test can assert
+// what a name reduces to without the answer changing every run.
+func Mint(name, nonce string) string { return ids.Mint(name, "x", nonce) }
 
 // validID reports whether an identifier could be one this system minted.
 func validID(kind, id string) error {
-	switch {
-	case id == "":
-		return fmt.Errorf("%w: empty %s id", ErrInvalidSchema, kind)
-	case len(id) > maxIDLen:
-		return fmt.Errorf("%w: %s id longer than %d bytes", ErrInvalidSchema, kind, maxIDLen)
-	case !minted.MatchString(id):
-		return fmt.Errorf("%w: %s id %q is not one this system mints", ErrInvalidSchema, kind, id)
-	default:
-		return nil
+	if err := ids.Validate(kind, id); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidSchema, err)
 	}
+	return nil
 }
 
 // ActorKind distinguishes who acted. Agents are first-class: every place an

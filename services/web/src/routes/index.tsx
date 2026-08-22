@@ -6,6 +6,7 @@ import { ObjectsPanel } from '@/components/workspace/ObjectsPanel';
 import { Workspace } from '@/components/workspace/Workspace';
 import { configuration } from '@/core/configuration';
 import { useCurrentProject } from '@/hooks/useCurrentProject';
+import { useIdentity } from '@/hooks/useIdentity';
 import { useProjectAdmin } from '@/hooks/useProjectAdmin';
 import { useProjects } from '@/hooks/useProjects';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -46,6 +47,7 @@ function Index() {
   const writer = useTrackerWriter(client, current.id);
   const admin = useProjectAdmin(client);
   const shell = useWorkspace();
+  const me = useIdentity();
 
   useTombstones(
     shell,
@@ -112,6 +114,15 @@ function Index() {
           onFocusTab={shell.focusTab}
           onCloseTab={shell.closeTab}
           onToggleInspector={shell.toggleInspector}
+          identity={{
+            actor: me.actor,
+            editing: me.editing,
+            draft: me.draft,
+            onDraft: me.setDraft,
+            onStart: me.start,
+            onSave: me.save,
+            onCancel: me.cancel,
+          }}
         />
       }
       right={

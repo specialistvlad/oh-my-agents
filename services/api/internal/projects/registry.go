@@ -2,14 +2,13 @@ package projects
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/ids"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settings"
 )
 
@@ -45,16 +44,9 @@ func NewRegistry(d Deps) *Registry {
 		d.Clock = func() time.Time { return time.Now().UTC() }
 	}
 	if d.Nonce == nil {
-		d.Nonce = randomNonce
+		d.Nonce = ids.Nonce
 	}
 	return &Registry{records: d.Records, workspace: d.Workspace, clock: d.Clock, nonce: d.Nonce}
-}
-
-// randomNonce is the unique half of an id: short, lowercase, unguessable.
-func randomNonce() string {
-	var b [3]byte
-	_, _ = rand.Read(b[:])
-	return hex.EncodeToString(b[:])
 }
 
 // Create implements [Store].

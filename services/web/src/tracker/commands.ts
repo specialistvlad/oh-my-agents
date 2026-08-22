@@ -1,5 +1,7 @@
 import type { RealtimeClient } from '@/realtime/client';
 
+import type { Actor } from './types';
+
 /**
  * Tracker writes over the socket.
  *
@@ -11,14 +13,15 @@ export function createItem(
   client: RealtimeClient,
   project: string,
   type: string,
-  title: string
+  title: string,
+  author: Actor
 ): Promise<void> {
   return client.command((id, idempotency) => ({
     type: 'item.create',
     id,
     project,
     idempotency,
-    body: { type, title },
+    body: { type, title, author },
   }));
 }
 
@@ -33,7 +36,8 @@ export function moveItem(
   project: string,
   item: string,
   version: number,
-  status: string
+  status: string,
+  author: Actor
 ): Promise<void> {
   return client.command((id, idempotency) => ({
     type: 'item.update',
@@ -42,7 +46,7 @@ export function moveItem(
     item,
     version,
     idempotency,
-    body: { status },
+    body: { status, author },
   }));
 }
 
@@ -50,7 +54,8 @@ export function deleteItem(
   client: RealtimeClient,
   project: string,
   item: string,
-  version: number
+  version: number,
+  author: Actor
 ): Promise<void> {
   return client.command((id, idempotency) => ({
     type: 'item.delete',
@@ -59,5 +64,6 @@ export function deleteItem(
     item,
     version,
     idempotency,
+    body: { author },
   }));
 }

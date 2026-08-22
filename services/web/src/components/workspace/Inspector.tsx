@@ -1,6 +1,7 @@
 import { StatusChip } from '@/components/StatusChip';
 import { Button } from '@/components/ui/button';
-import { movesFrom, statusOf } from '@/tracker/types';
+import { formatValue } from '@/tracker/format';
+import { fieldsOf, movesFrom, statusOf } from '@/tracker/types';
 import type { Item, Schema } from '@/tracker/types';
 
 type Props = {
@@ -50,6 +51,16 @@ export function Inspector({ item, missing, schema, busy, onMove }: Props) {
       <Row label="ID">
         <span className="font-mono text-xs break-all">{item.id}</span>
       </Row>
+      {/*
+        The fields this item's type declares, whether or not the item holds a
+        value for one. Showing the empty ones is what makes a configured field
+        discoverable — a field nobody has filled in is invisible otherwise.
+      */}
+      {fieldsOf(type, item).map(({ def, value }) => (
+        <Row key={def.id} label={def.name}>
+          {formatValue(value)}
+        </Row>
+      ))}
       {type ? (
         <div className="mt-4 flex flex-wrap gap-2">
           {movesFrom(type, item.status).map((status) => (

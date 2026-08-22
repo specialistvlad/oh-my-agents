@@ -12,9 +12,10 @@ package projects
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
+
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/ids"
 )
 
 // ID addresses a project, permanently.
@@ -26,23 +27,13 @@ import (
 // Nothing may parse an ID or infer anything from one.
 type ID string
 
-// idPattern is what a minted ID looks like, and what is accepted back. It is
-// deliberately a subset of a settings key segment and of a safe path segment,
-// because an ID is used as both.
-var idPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-
-// Validate reports whether this could be an ID this system minted.
+// Validate reports whether this could be an ID this system minted, wrapping
+// [ErrInvalidID] with the reason.
 func (id ID) Validate() error {
-	switch {
-	case id == "":
-		return fmt.Errorf("%w: empty", ErrInvalidID)
-	case len(id) > 128:
-		return fmt.Errorf("%w: longer than 128 bytes", ErrInvalidID)
-	case !idPattern.MatchString(string(id)):
-		return fmt.Errorf("%w: %q", ErrInvalidID, string(id))
-	default:
-		return nil
+	if err := ids.Validate("project", string(id)); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidID, err)
 	}
+	return nil
 }
 
 // Project is one project's record. It is what the registry stores and what
@@ -75,31 +66,8 @@ func ValidateName(name string) error {
 	}
 }
 
-// MintID builds an ID from a name and a nonce.
-//
-// The stem is the name reduced to something readable in a path and a URL. A
-// name with nothing usable in it — punctuation, or a script this reduction
-// does not handle — still gets an ID, because the nonce alone is enough to
-// address it and refusing the name would be worse.
+// MintID builds an ID from a name. The nonce is what makes it unique; the
+// stem is what makes it readable (ADR-0009).
 func MintID(name, nonce string) ID {
-	stem := stemOf(name)
-	if stem == "" {
-		return ID("project-" + nonce)
-	}
-	return ID(stem + "-" + nonce)
-}
-
-// maxStemLen bounds the readable half so an ID stays a manageable path
-// segment however long the name was.
-const maxStemLen = 40
-
-var notStem = regexp.MustCompile(`[^a-z0-9]+`)
-
-func stemOf(name string) string {
-	stem := notStem.ReplaceAllString(strings.ToLower(name), "-")
-	stem = strings.Trim(stem, "-")
-	if len(stem) > maxStemLen {
-		stem = strings.Trim(stem[:maxStemLen], "-")
-	}
-	return stem
+	return ID(ids.Mint(name, "project", nonce))
 }

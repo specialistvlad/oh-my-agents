@@ -1,7 +1,9 @@
 import { PanelRight } from 'lucide-react';
+import type { ComponentProps } from 'react';
 
 import { ConnectionBadge } from '@/components/ConnectionBadge';
 import { CreateItem } from '@/components/CreateItem';
+import { IdentityBadge } from '@/components/IdentityBadge';
 import { ItemList } from '@/components/ItemList';
 import { ProjectAdmin } from '@/components/ProjectAdmin';
 import type { ProjectAdminProps } from '@/components/ProjectAdmin';
@@ -32,6 +34,7 @@ type Props = {
   onFocusTab: (id: string) => void;
   onCloseTab: (id: string) => void;
   onToggleInspector: () => void;
+  identity: ComponentProps<typeof IdentityBadge>;
 };
 
 /** The middle column: the tab strip, and whatever the active tab holds. */
@@ -41,14 +44,16 @@ export function Centre(props: Props) {
       <header className="flex items-center gap-3 border-b border-border px-4 py-2">
         <span className="text-sm font-semibold">oh-my-agents</span>
         <ConnectionBadge status={props.status} />
-        <Button
-          size="sm"
-          variant="ghost"
-          className="ml-auto"
-          aria-label="Toggle the inspector"
-          onClick={props.onToggleInspector}>
-          <PanelRight className="size-4" aria-hidden />
-        </Button>
+        <div className="ml-auto flex items-center gap-1">
+          <IdentityBadge {...props.identity} />
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label="Toggle the inspector"
+            onClick={props.onToggleInspector}>
+            <PanelRight className="size-4" aria-hidden />
+          </Button>
+        </div>
       </header>
       <TabStrip
         tabs={props.tabs}
