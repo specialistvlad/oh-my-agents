@@ -16,10 +16,6 @@ import (
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/config"
 )
 
-// portProbeAttempts is how many consecutive ports Start tries when the
-// requested one is busy, so several local instances can boot unattended.
-const portProbeAttempts = 10
-
 // Config holds the parameters for the HTTP server.
 type Config struct {
 	Port        string // listen port, no leading colon
@@ -64,7 +60,7 @@ type Mount struct {
 // shutdown.
 func Start(cfg Config) (*http.Server, <-chan error) {
 	errCh := make(chan error, 1)
-	ln, boundPort, err := listenWithProbe(cfg.Port)
+	ln, boundPort, err := listen(cfg.Port)
 	if err != nil {
 		errCh <- err
 		return nil, errCh
@@ -89,30 +85,30 @@ func Start(cfg Config) (*http.Server, <-chan error) {
 	return srv, errCh
 }
 
-// listenWithProbe binds basePort, walking upward by 1 on "address already in
-// use" for up to portProbeAttempts tries. Any other error returns immediately.
-// The bound port is read back off the listener, so port "0" resolves to the
-// arbitrary port the kernel picked.
-func listenWithProbe(basePort string) (net.Listener, string, error) {
-	p, err := strconv.Atoi(basePort)
-	if err != nil {
-		return nil, "", fmt.Errorf("invalid base port %q: %w", basePort, err)
+// listen binds the configured port, and fails if it cannot.
+//
+// It does not look for another port. Quietly moving to the next one is how a
+// service ends up on the port belonging to something else — the api walked
+// onto the web app's port and the web app then refused to start, with nothing
+// but a log line to say why. A busy port is a mistake worth stopping for, and
+// the message says which port and what to do about it.
+//
+// Port "0" still means "any free port", which is what tests ask for and is an
+// explicit request rather than a silent fallback.
+func listen(port string) (net.Listener, string, error) {
+	if _, err := strconv.Atoi(port); err != nil {
+		return nil, "", fmt.Errorf("invalid port %q: %w", port, err)
 	}
 	var lc net.ListenConfig
-	for i := range portProbeAttempts {
-		ln, err := lc.Listen(context.Background(), "tcp", ":"+strconv.Itoa(p+i))
-		if err == nil {
-			bound := strconv.Itoa(ln.Addr().(*net.TCPAddr).Port)
-			if i > 0 {
-				slog.Warn("HTTP base port busy, advanced", "requested", basePort, "bound", bound)
-			}
-			return ln, bound, nil
+	ln, err := lc.Listen(context.Background(), "tcp", ":"+port)
+	if err != nil {
+		if isAddrInUse(err) {
+			return nil, "", fmt.Errorf(
+				"port %s is already in use: stop whatever is on it, or set API_HTTP_PORT to a free one", port)
 		}
-		if !isAddrInUse(err) {
-			return nil, "", err
-		}
+		return nil, "", fmt.Errorf("cannot listen on port %s: %w", port, err)
 	}
-	return nil, "", fmt.Errorf("no free port found in range %d-%d", p, p+portProbeAttempts-1)
+	return ln, strconv.Itoa(ln.Addr().(*net.TCPAddr).Port), nil
 }
 
 func isAddrInUse(err error) bool {

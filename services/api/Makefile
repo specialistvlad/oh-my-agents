@@ -13,7 +13,7 @@ SHELL := /bin/bash
 setup: ## Install the toolchain (go, air, golangci-lint, gotestsum)
 	@if ! command -v go >/dev/null 2>&1; then brew install go; else echo "go: $$(go version)"; fi
 	@if ! command -v golangci-lint >/dev/null 2>&1; then brew install golangci-lint; else echo "golangci-lint: $$(golangci-lint --version)"; fi
-	@if ! command -v air >/dev/null 2>&1; then go install github.com/air-verse/air@latest; else echo "air: installed"; fi
+	@if [ ! -x "$(AIR)" ]; then go install github.com/air-verse/air@latest; else echo "air: $(AIR)"; fi
 	@if [ ! -x "$(GOTESTSUM)" ]; then go install gotest.tools/gotestsum@$(GOTESTSUM_VERSION); else echo "gotestsum: $$($(GOTESTSUM) --version)"; fi
 
 .PHONY: install
