@@ -10,7 +10,7 @@ WORKDIR /app
 COPY package*.json .npmrc ./
 RUN npm ci
 
-COPY eslint.config.js .prettierrc .prettierignore ./
+COPY eslint.config.js .prettierrc .prettierignore components.json ./
 COPY tsconfig.json tsconfig.node.json vite.config.ts vitest.config.ts ./
 COPY index.html ./
 COPY public/ public/

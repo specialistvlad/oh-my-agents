@@ -1,42 +1,30 @@
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-
 import type { RealtimeEvent } from '@/realtime/types';
 
 /** The events this client has been told about, newest first. */
 export function EventList({ events }: { events: RealtimeEvent[] }) {
   if (events.length === 0) {
     return (
-      <Typography color="text.secondary" sx={{ py: 2 }}>
+      <p className="py-2 text-sm text-muted-foreground">
         Nothing yet. Write a setting — or open this page in a second tab and
         write one there.
-      </Typography>
+      </p>
     );
   }
   return (
-    <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
+    <ul className="font-mono text-sm">
       {events.map((event, i) => (
-        <Box
-          component="li"
+        <li
           key={`${event.seq}-${i}`}
-          sx={{
-            display: 'flex',
-            gap: 2,
-            py: 1,
-            borderBottom: 1,
-            borderColor: 'divider',
-            fontFamily: 'monospace',
-            fontSize: 14,
-          }}>
-          <Box sx={{ color: 'text.secondary', minWidth: 48 }}>
+          className="flex gap-4 border-b border-border py-2 last:border-0">
+          <span className="w-12 shrink-0 text-muted-foreground">
             {event.seq || '—'}
-          </Box>
-          <Box sx={{ fontWeight: 600, minWidth: 160 }}>{event.kind}</Box>
-          <Box sx={{ color: 'text.secondary' }}>
+          </span>
+          <span className="w-40 shrink-0 font-semibold">{event.kind}</span>
+          <span className="truncate text-muted-foreground">
             {JSON.stringify(event.data)}
-          </Box>
-        </Box>
+          </span>
+        </li>
       ))}
-    </Box>
+    </ul>
   );
 }

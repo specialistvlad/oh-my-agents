@@ -51,6 +51,20 @@ export default tseslint.config(
     },
   },
   {
+    // Vendored components. shadcn/ui is copy-and-own: these arrive from a
+    // registry as whole units, and the readability cap is a rule for code we
+    // author. Editing a generated component to fit it would be re-authoring
+    // it, and the next `shadcn add --overwrite` would undo the work.
+    //
+    // Measured rather than assumed: `dialog` lands at 151 lines, one over.
+    // Everything we write ourselves, including src/components/*.tsx, keeps
+    // the cap.
+    files: ['src/components/ui/**'],
+    rules: {
+      'max-lines': 'off',
+    },
+  },
+  {
     // Spec files grow with coverage; the 150-line cap is a readability rule
     // for production code, not a meaningful bound here.
     files: ['**/*.test.ts', '**/*.test.tsx'],

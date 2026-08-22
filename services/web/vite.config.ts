@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv } from 'vite';
@@ -23,19 +24,10 @@ export default defineConfig(({ mode }) => {
         generatedRouteTree: './src/core/routeTree.gen.ts',
       }),
       react(),
+      tailwindcss(),
     ],
     build: {
       target: 'es2022',
-    },
-    optimizeDeps: {
-      include: [
-        '@emotion/react',
-        '@emotion/styled',
-        '@mui/material',
-        '@mui/icons-material',
-        '@mui/x-data-grid',
-        'notistack',
-      ],
     },
   };
 });

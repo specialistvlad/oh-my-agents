@@ -1,13 +1,11 @@
-import Button from '@mui/material/Button';
-import Container from '@mui/material/Container';
-import Divider from '@mui/material/Divider';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
+import { Trash2, Zap } from 'lucide-react';
 
 import { ConnectionBadge } from '@/components/ConnectionBadge';
 import { EventList } from '@/components/EventList';
 import { KeyList } from '@/components/KeyList';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { configuration } from '@/core/configuration';
 import { useRealtime } from '@/hooks/useRealtime';
 import { useRealtimeWriter } from '@/hooks/useRealtimeWriter';
@@ -29,53 +27,54 @@ function Index() {
   const { write, remove, busy, error } = useRealtimeWriter(client);
 
   return (
-    <Container sx={{ py: 6 }}>
-      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 1 }}>
-        <Typography variant="h4">oh-my-agents</Typography>
+    <main className="mx-auto max-w-3xl px-6 py-12">
+      <div className="mb-1 flex items-center gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">oh-my-agents</h1>
         <ConnectionBadge status={status} />
-      </Stack>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>
+      </div>
+      <p className="mb-6 text-sm text-muted-foreground">
         One socket carries writes out and events back. State is fetched once
         when the rooms are joined; after that nothing on this page polls or
         refetches.
-      </Typography>
+      </p>
 
-      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+      <div className="mb-6 flex flex-wrap gap-3">
         <Button
-          variant="contained"
           disabled={busy}
           onClick={() =>
             write('demo/clicked', { at: new Date().toISOString() })
           }>
+          <Zap className="size-4" aria-hidden />
           Write a setting
         </Button>
         <Button
-          variant="outlined"
+          variant="outline"
           disabled={busy}
           onClick={() => write('demo/counter', { n: events.length })}>
           Write another
         </Button>
         <Button
-          variant="outlined"
+          variant="ghost"
           disabled={busy}
           onClick={() => remove('demo/clicked')}>
+          <Trash2 className="size-4" aria-hidden />
           Delete one
         </Button>
-      </Stack>
-      {error ? <Typography color="error">{error}</Typography> : null}
+      </div>
+      {error ? <p className="mb-4 text-sm text-danger">{error}</p> : null}
 
-      <Typography variant="overline" color="text.secondary">
+      <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         Stored settings — fetched{' '}
         {generation === 0 ? 'not yet' : `${generation}×`}
-      </Typography>
+      </h2>
       <KeyList keys={keys} error={keysError} />
 
-      <Divider sx={{ my: 3 }} />
+      <Separator className="my-6" />
 
-      <Typography variant="overline" color="text.secondary">
+      <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         Live events
-      </Typography>
+      </h2>
       <EventList events={events} />
-    </Container>
+    </main>
   );
 }
