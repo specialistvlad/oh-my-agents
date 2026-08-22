@@ -21,6 +21,7 @@ import (
 type Store struct {
 	mu       sync.RWMutex
 	disk     Persistence
+	announce func(context.Context, tracker.Event)
 	clock    tracker.Clock
 	ids      tracker.IDGenerator
 	schema   tracker.Schema
@@ -40,6 +41,15 @@ type Deps struct {
 	// Persistence is where state survives the process. Nil keeps nothing,
 	// which is what a fake wants.
 	Persistence Persistence
+
+	// Announce is told about every event, after it has been persisted and
+	// applied. Nil tells nobody.
+	//
+	// A hook rather than a decorator over [tracker.Store]: the store already
+	// computes the exact event, and wrapping eighteen methods to forward
+	// what one function can carry would be all cost and no clarity
+	// (ADR-0001).
+	Announce func(ctx context.Context, e tracker.Event)
 }
 
 // New returns a store holding whatever its persistence already had.
@@ -57,6 +67,7 @@ func New(ctx context.Context, d Deps) (*Store, error) {
 		clock:    d.Clock,
 		ids:      d.IDs,
 		disk:     d.Persistence,
+		announce: d.Announce,
 		items:    make(map[tracker.ItemID]tracker.Item),
 		comments: make(map[tracker.CommentID]tracker.Comment),
 	}

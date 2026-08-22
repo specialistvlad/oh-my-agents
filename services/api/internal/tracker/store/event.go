@@ -32,6 +32,9 @@ func (s *Store) emit(
 		return
 	}
 	s.events = append(s.events, e)
+	if s.announce != nil {
+		s.announce(ctx, e)
+	}
 }
 
 // emitChanges records an update as the events consumers actually wait on.

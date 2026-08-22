@@ -9,12 +9,14 @@ package scopes
 import (
 	"context"
 	"path/filepath"
+	"sync"
 
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/bus"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/projects"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/rooms"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settings"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settingsbus"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/tracker"
 )
 
 // Registry is the part of the project store scopes needs: where a project
@@ -27,11 +29,20 @@ type Registry interface {
 type Scopes struct {
 	registry Registry
 	pub      bus.Publisher
+
+	// One tracker per project, shared. See [Scopes.Tracker] for why that is
+	// a correctness requirement rather than a cache.
+	mu       sync.Mutex
+	trackers map[projects.ID]tracker.Store
 }
 
 // New returns a resolver.
 func New(registry Registry, pub bus.Publisher) *Scopes {
-	return &Scopes{registry: registry, pub: pub}
+	return &Scopes{
+		registry: registry,
+		pub:      pub,
+		trackers: make(map[projects.ID]tracker.Store),
+	}
 }
 
 // Settings returns the settings store for one project, rooted at its own
