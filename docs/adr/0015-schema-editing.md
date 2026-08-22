@@ -1,76 +1,73 @@
-# ADR-0015: Configuring a tracker from the UI
+# ADR-0015: Schema edits are granular, server-minted, and never silently lossy
 
-- Status: **Proposed** — the questions below need answering before this is settled
+- Status: Accepted
 - Date: 2026-08-21
 - Scope: `services/api/internal/tracker`, `services/api/internal/trackerhttp`, `services/web`
 - Relates to: ADR-0001, ADR-0004, ADR-0005, ADR-0009
 
 ## Context
 
-ADR-0004's premise is that types, fields and statuses are **data**, so adding a
-class of work costs a write rather than a deploy. Nothing can perform that
-write. A project is seeded with one hardcoded Task type, and the only API is
-`PUT`/`DELETE` of a whole type.
+ADR-0004's premise is that types, fields and statuses are data, so a new class
+of work costs a write rather than a deploy. Nothing can perform that write. A
+project is seeded with one Task type and the only API is `PUT`/`DELETE` of a
+whole type — an API designed for a machine writing a schema atomically, not for
+a person adding one field.
 
-That API was designed for a machine writing a schema atomically — seeding, or
-an import. It is the wrong shape for a person adding one field:
+Whole-type replacement also means two people editing different parts of one
+type overwrite each other wholesale, and it makes the client responsible for
+reconstructing a valid type from a form.
 
-- The client must reconstruct an entire `ItemType` and resubmit it, so two
-  people editing different parts of one type overwrite each other wholesale.
-- Adding a status means inventing its ID. `tracker.Mint` exists for exactly
-  this and **is called from nowhere**; `validID` only checks an ID looks minted,
-  not that it was.
-- `PutItemType` refuses any change that would invalidate stored items. There is
-  no migration path — only rejection — so a UI can offer a control that is
-  permanently refused with no way forward.
+## Decision
 
-There is also a latent trap: **adding `required` to a field would make every
-existing item fail `ValidateItem`** on next read. Harmless while nothing edits
-schemas; a data-loss-shaped bug the moment something does.
+**Granular operations alongside whole-type `PUT`.** Add and edit a field, add a
+status, add and remove a transition, each its own operation the server
+validates and applies. `PUT` stays for import and machine use, where writing a
+whole type at once is exactly right.
 
-## What has to be decided
+**The server mints identifiers, on save.** An add-field call takes a name and
+returns the minted id. The client never invents one, which is what ADR-0009
+wanted and what `validID`'s shape check cannot enforce on its own. Minting on
+save rather than as someone types means an abandoned draft leaves no orphan id
+behind.
 
-**Granular operations, or whole-type replacement.** Add-field, rename-option,
-add-transition as their own operations that the server validates and applies —
-against keeping `PUT` and having the client rebuild the type. `PUT` stays
-either way for import and machine use.
+**Deleting a status in use requires a replacement.** The call names where its
+items go. Refusing forever is a control that can never succeed; reassigning
+automatically changes data without being asked. Naming a replacement is the
+only option that is both explicit and always has a way forward.
 
-**Who mints IDs.** If the server does, add-field takes a name and returns an
-ID, and `Mint` finally has a caller. If the client does, `validID`'s shape
-check becomes the only guard against hand-invented IDs, which ADR-0009 exists
-to prevent.
+**Removing a field that holds values requires acknowledgement.** The first call
+fails and says how many items hold one; repeating it with an explicit discard
+succeeds. No separate dry-run endpoint — the refusal _is_ the preview, which is
+one mechanism instead of two.
 
-**Refuse, or migrate.** Deleting a status with items in it, removing a field
-holding data, dropping a select option in use, adding a required field. Each
-needs an answer, and "refuse forever" is a legitimate one — but it has to be
-chosen rather than inherited from the current code.
+**Adding `required` binds future writes only.** Existing items are not
+retroactively invalid, and the requirement bites the next time one is written.
+The alternative — refusing the schema change until every item is backfilled —
+blocks a legitimate change on data nobody may have.
 
-**What a legal workflow is.** `schema.go` already notes in a comment that a
-type with no transitions "can be created but never moved, which is a
-configuration error rather than a special case." That needs to become an
-enforced rule or an accepted state. Unreachable statuses and a dangling
-`RequiredFields` reference need the same treatment.
+**A type with no transitions is a validation error.** `schema.go` already calls
+it "a configuration error rather than a special case"; this makes that an
+enforced rule rather than a comment. A type you can create but never move is
+never what anyone meant.
 
-## Questions to settle
+**Templates stay seed data.** Richer starting schemas are a change to
+`scopes.seed`, not a concept the domain needs to know about (ADR-0001).
 
-1. Deleting a status with items in it: refuse, require a replacement, or
-   reassign automatically?
-2. Removing a field that holds values: silent loss, or a confirmation that
-   needs a dry-run endpoint to say "12 items will lose this"?
-3. Adding `required` to a type with existing items: are they now invalid, or
-   does the rule apply only to new writes?
-4. When are IDs minted — as a person types a draft field, or on save? Minting
-   early leaves orphan IDs behind every abandoned edit.
-5. Is "no transitions declared" a hard validation error?
-6. Should a project be able to start from something richer than one Task type,
-   and is that a decision or just seed data?
+## Consequences
 
-## Consequences either way
+**An item can be left unable to save until someone fills in a field.** That
+follows directly from `required` binding future writes: an item created before
+the rule cannot be edited without satisfying it. The UI has to say which field
+and why, or that item looks broken.
 
-The schema becomes the first thing in the system a person can break for
-everybody. It is project-scoped (ADR-0009), so a bad edit does not escape one
-project — but within it, a removed status is removed for every client watching,
-arriving as an event mid-interaction.
+**The schema becomes the first thing a person can break for everybody in a
+project.** It is project-scoped (ADR-0009) so it cannot escape one, but within
+it a removed status arrives at every client as an event, mid-interaction.
 
-Whatever migration answer is chosen, `trackertest` gains assertions for it,
-because ADR-0005 makes every adapter enforce it identically.
+**Every granular operation is another invariant every adapter enforces**
+(ADR-0005), so each arrives with assertions in `trackertest` rather than only
+where it is implemented.
+
+**Two people editing one type can still collide**, because the type is the unit
+of storage even when the operation is granular. Granularity buys a smaller
+window and a clearer intent, not immunity.

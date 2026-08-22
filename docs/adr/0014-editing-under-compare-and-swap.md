@@ -1,64 +1,64 @@
-# ADR-0014: Editing an item under compare-and-swap
+# ADR-0014: Editing keeps one version per item, and never loses a draft
 
-- Status: **Proposed** — the questions below need answering before this is settled
+- Status: Accepted
 - Date: 2026-08-21
 - Scope: `services/api/internal/tracker`, `services/web`
-- Relates to: ADR-0004, ADR-0008, ADR-0011, ADR-0012
+- Relates to: ADR-0001, ADR-0004, ADR-0008, ADR-0011, ADR-0012
 
 ## Context
 
-Nothing in the app can edit an item. A status can be moved; a title, a body and
-every custom field are read-only, and the frontend `Item` type does not even
-carry `fields`.
+Nothing in the app can edit an item beyond moving it between statuses. Making
+title, body and custom fields editable runs into the concurrency model: every
+write is compare-and-swap on `Version` (ADR-0004), there is no operational
+transform or CRDT (ADR-0008), and `Version` is one counter per item.
 
-Making them editable runs straight into the concurrency model. Every write is
-compare-and-swap on `Version` (ADR-0004), there is no operational transform or
-CRDT anywhere (ADR-0008), and `Version` is **one counter per item**. So two
-people editing different fields of the same item collide, though nothing they
-did overlaps.
+So two people editing _different fields_ of one item collide, though nothing
+they did overlaps. The instinct is to fix that with per-field versioning.
 
-A markdown body makes this sharper than a title does. Losing a word is
-annoying; losing three paragraphs someone was mid-way through writing is the
-kind of thing that stops people trusting an application.
+## Decision
 
-## What has to be decided
+**`Version` stays one counter per item.** Per-field versioning is a second
+concurrency story for every adapter to enforce and every edge to explain, in
+exchange for a case that is uncommon in a tracker.
 
-**Whether `Version` stays per item.** Per-field versioning — or a patch that
-carries only what actually changed and is checked field by field — would let
-two people edit different parts of one item. It also gives the store two kinds
-of version to keep consistent, and gives every adapter more to enforce.
+**The stricter part is the check, not the data.** `UpdateItem` re-reads the item
+inside the lock and applies the patch on top, so a patch that sets only `title`
+cannot clobber a `body` written a moment earlier. The version check refuses
+writes that would in fact have been safe.
 
-**What a rejected save does to the draft.** Silently re-reading loses
-keystrokes. Blocking with "someone else saved" keeps the draft but stops the
-person until they resolve it. A field-level merge is the most forgiving and the
-most machinery.
+**So a conflict is resolved by the client, not the domain.** On
+`ErrVersionConflict` the client refetches and, if the fields it is writing are
+unchanged, re-applies its patch silently. If they did change, it stops and
+shows the other version. The common case resolves itself; the real case asks a
+person. This is a client policy, and nothing in the domain grows to support it.
 
-**Where the browser's identity comes from.** ADR-0012 makes actors
-self-declared, and the browser currently declares nobody — every UI write is
-attributed to an empty actor. Something must supply one: a name typed once and
-remembered per device, the way layout is (ADR-0011). The UI must not imply this
-is verified, because it is not and cannot be.
+**A draft is never lost.** Whatever the conflict, what someone typed stays in
+the tab until they discard it. Losing a word is annoying; losing three
+paragraphs someone was mid-way through is what stops people trusting an
+application, and no merge strategy is worth that risk.
 
-**How typed fields are edited.** There are eleven kinds. Which invalid states
-are caught in the browser (URL shape, number parsing, select membership) and
-which must round-trip (item-type narrowing on `KindItem`, required fields).
-`KindActor` and `KindItem` need pickers, which need data — and ADR-0011 says
-nothing in a component fetches.
+**Identity is a name the browser claims**, stored per device like the layout
+(ADR-0011), defaulting to something visibly generic rather than empty. It is a
+claim and not evidence (ADR-0012), and the UI says so rather than presenting it
+as an account.
 
-## Questions to settle
+**`KindActor` and `KindItem` are edited as free text for now.** Pickers need
+data, and ADR-0011 says nothing in a component fetches — so a picker means a
+hook, a fetch and a cache for a field nobody has yet used. It waits for a
+caller.
 
-1. Does `Version` stay one counter per item, accepting that two people editing
-   different fields conflict?
-2. On a conflict while editing a body, is the draft preserved, and where?
-3. Does the person choose an identity, or does the browser invent one they
-   never see? An invented one makes the feed useless; a chosen one is a prompt
-   nobody asked for on first load.
-4. Are `KindActor` and `KindItem` free text, or pickers — and if pickers, which
-   layer fetches their options?
+## Consequences
 
-## Consequences either way
+**Two people editing different fields of one item will sometimes see a
+conflict that resolves itself**, because the client retries. They will
+occasionally see one that does not, and be shown the other version. That is the
+accepted cost of one version counter.
 
-The activity feed becomes meaningful for the first time, because writes will
-carry an actor. It also becomes the first place one person's self-declared name
-is shown to another, which ADR-0012 says is a claim and not evidence. The UI
-has to not dress it up as more than that.
+**A retry that re-applies silently is a write nobody asked to repeat.** It is
+safe because the patch is the same and the fields it touches are unchanged, but
+it means an edit can land later than the person who made it believes. The event
+feed records when it actually landed.
+
+**Client-side validation is a convenience, never the guard.** The store already
+refuses a value whose kind contradicts its field (ADR-0005), and the browser
+checking first only saves a round trip.

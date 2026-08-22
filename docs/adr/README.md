@@ -5,7 +5,9 @@ longer holds gets superseded by a later ADR rather than edited.
 
 A **proposed** ADR states a decision that has not been taken: it lays out the
 options and the questions blocking it, and becomes accepted when they are
-answered. Nothing is built on a proposed ADR.
+answered. Nothing is built on a proposed ADR. Accepting one is the normal
+lifecycle rather than a rewrite — the never-rewritten rule protects decisions
+already taken.
 
 | ADR                                                    | Decision                                                                               |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
@@ -21,8 +23,8 @@ answered. Nothing is built on a proposed ADR.
 | [0010](0010-project-lifecycle.md)                      | Projects are created, renamed, re-pointed and removed, and every client sees it        |
 | [0011](0011-three-column-workspace.md)                 | The UI is a three-column workspace built around state that arrives                     |
 | [0012](0012-no-authentication.md)                      | There is no authentication, by design                                                  |
-| [0013](0013-item-ordering.md)                          | Items carry an explicit order **(proposed)**                                           |
-| [0014](0014-editing-under-compare-and-swap.md)         | Editing an item under compare-and-swap **(proposed)**                                  |
-| [0015](0015-schema-editing.md)                         | Configuring a tracker from the UI **(proposed)**                                       |
-| [0016](0016-querying.md)                               | How far the query surface widens **(proposed)**                                        |
-| [0017](0017-boards-and-views.md)                       | Boards, grouping, and where a view lives **(proposed)**                                |
+| [0013](0013-item-ordering.md)                          | Items carry one global rank, and reordering is not an edit                             |
+| [0014](0014-editing-under-compare-and-swap.md)         | Editing keeps one version per item, and never loses a draft                            |
+| [0015](0015-schema-editing.md)                         | Schema edits are granular, server-minted, and never silently lossy                     |
+| [0016](0016-querying.md)                               | Query widens for fields and sorting, and stops before comparators                      |
+| [0017](0017-boards-and-views.md)                       | A column is a status, a board is one type, and a view is local                         |

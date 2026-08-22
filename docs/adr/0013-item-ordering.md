@@ -1,63 +1,66 @@
-# ADR-0013: Items carry an explicit order
+# ADR-0013: Items carry one global rank, and reordering is not an edit
 
-- Status: **Proposed** — the questions below need answering before this is settled
+- Status: Accepted
 - Date: 2026-08-21
 - Scope: `services/api/internal/tracker`, `services/web`
-- Relates to: ADR-0002, ADR-0004, ADR-0008
+- Relates to: ADR-0001, ADR-0002, ADR-0004, ADR-0008
 
 ## Context
 
-A board's defining interaction is dragging a card to a _position_ within a
-column. Nothing in the domain can express one.
+A board's defining interaction is dragging a card to a _position_. Nothing in
+the domain can express one: `Item` has no rank, `Query.Sort` is a closed list
+of created, updated and title, and `Patch` has no field for reordering.
 
-`Item` has no rank or position field. `Query.Sort` is a closed list —
-`created_at`, `updated_at`, `title` — with no manual-order key and no way to
-add one from outside the package. `Patch` has no field for reordering.
+An ordering bolted on at the web layer would be per-browser, invisible to
+agents, and lost on reload. So it belongs in the domain, and the question is
+what shape it takes.
 
-So this is a domain-model gap, not a UI gap, and no board can be built over it.
-It is also the gap most likely to be papered over badly: an ordering bolted on
-at the web layer would be per-browser, invisible to agents, and lost on reload.
+## Decision
 
-## What has to be decided
+**One rank per item, global to the project.** Not per status, and not per
+status and parent. A column's order falls out of filtering the global order,
+because the relative order of any subset is preserved by the order it is drawn
+from. Per-status ranking would mean every status change also reassigns a rank —
+a second thing to get right for no gain a person can see.
 
-**What rank is.** A sparse fractional or lexicographic key (insert between two
-neighbours without touching them) or a dense integer position (insert means
-renumbering the siblings). The filesystem store is the yardstick (ADR-0002):
-one file per item means a dense scheme rewrites every sibling on every drag,
-while a sparse one rewrites exactly one file.
+**Rank is a sparse lexicographic key**, so inserting between two neighbours
+writes one item. The filesystem store is the yardstick (ADR-0002): one file per
+item means a dense integer position rewrites every sibling on every drag, and a
+sparse key rewrites exactly one.
 
-**What it is scoped to.** Global per project, per status, or per status and
-parent together. Per-status ordering means a status change must also assign a
-new rank, because the card is arriving at a position in a different column.
+**Reordering is its own operation and does not go through `Patch`.** `Patch` has
+no rank field. A drag is not an edit in any sense a person would recognise, and
+ADR-0001 prefers a small single-purpose unit over a flag on a general one.
 
-**Whether reordering bumps `Item.Version`.** This is the sharp one. Every write
-is compare-and-swap on `Version` (ADR-0004). If a drag bumps it, then dragging
-a card conflicts with somebody editing that card's description, though the two
-do not overlap semantically. If it does not, position needs its own versioning
-and the store has two concurrency stories instead of one.
+**Reordering does not bump `Version`.** This is the part that needed the most
+care, and the code already makes it safe: `UpdateItem` re-reads the item inside
+the lock and applies the patch on top of what it finds. So an edit saved after
+a drag cannot revert the drag — the patch never carries a rank to revert it
+with. A drag and an edit therefore do not conflict, which is the right answer,
+because they do not overlap.
 
-**Whether reordering is its own operation.** `UpdateItem` with a `Patch` is the
-existing write path, but ADR-0001 prefers small single-purpose units, and a
-drag is not an edit in any sense a person would recognise.
+**Two clients dragging one card is last-write-wins, silently.** No conflict is
+reported. A drag states a position rather than a transformation of one, so
+there is nothing to merge and nothing the loser needs to be told.
 
-## Questions to settle
+## Consequences
 
-1. Is rank per-status, or global across the project? Per-status is what a board
-   wants; global is one number and no reassignment on a status change.
-2. Does a drag bump `Item.Version`? Answering yes keeps one concurrency story
-   and makes drag storms conflict with content edits. Answering no needs a
-   second version and a reason it cannot drift from the first.
-3. When two clients drag the same card to different places at once, what does
-   the loser see — its card snapping back, or landing where the winner put it?
-4. Is reordering a separate port method, or a field on `Patch`?
+**Rank is the first thing in this model with no natural default.** An item has a
+type, a status and a parent because something supplied them. A new item's rank
+has to be invented, so creation now answers "where does this go" — at the end,
+which is the only answer that does not surprise someone.
 
-## Consequences either way
+**`Version` keeps one meaning.** It is the version of the item's _content_.
+Dragging cards around a board all afternoon produces no version churn and
+conflicts with nothing, which is what makes a board usable by several people
+at once.
 
-Whatever is chosen, `contract.go` gains an invariant, and `trackertest` gains
-assertions — ADR-0005 requires every adapter to enforce ordering identically,
-and the suite is what says they do.
+**Ordering is an invariant every adapter must enforce**, so `contract.go` gains
+it and `trackertest` gains assertions for it (ADR-0005). The memory and
+filesystem stores share their enforcement, so what the suite really proves here
+is that rank survives a restart.
 
-Ordering is also the first thing in this model with no natural default. An item
-has a type, a status and a parent because something set them; a rank has to be
-invented at creation, and "where does a new item go" becomes a question the
-domain has to answer rather than dodge.
+**A sparse key can run out of room.** Repeatedly inserting between the same two
+neighbours lengthens the key until it needs rebalancing. That is a real limit,
+deferred deliberately: it takes thousands of insertions at one spot, and the
+fix — renumber a project's items once — is available whenever it matters.

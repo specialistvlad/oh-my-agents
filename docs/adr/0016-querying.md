@@ -1,68 +1,62 @@
-# ADR-0016: How far the query surface widens
+# ADR-0016: Query widens for fields and sorting, and stops before comparators
 
-- Status: **Proposed** — the questions below need answering before this is settled
+- Status: Accepted
 - Date: 2026-08-21
 - Scope: `services/api/internal/tracker`, `services/api/internal/trackerhttp`
 - Relates to: ADR-0001, ADR-0002, ADR-0004
 
 ## Context
 
-Most of what a tracker needs — assignee, priority, labels, estimates, due dates
-— is already storable, because ADR-0004 made fields runtime data. None of it is
-findable.
+Most of what a tracker needs is already storable, because ADR-0004 made fields
+runtime data: assignee is a `KindActor` field, priority a select, estimates a
+duration, due dates a date. None of it is findable.
 
-- `Query.Fields []FieldMatch` exists in the domain and is **deliberately absent
-  from HTTP**, because a field match needs a typed value and there is no honest
-  way to read one from a string without knowing the field's kind.
-- `FieldMatch` is equality-only, so "due before Friday" cannot be asked even
-  in Go.
-- `SortKey` is a closed list of created, updated and title, so a priority field
-  can be stored and never ordered by.
+`Query.Fields` exists in the domain and is deliberately absent from HTTP,
+because a field match needs a typed value and a string cannot be turned into
+one without knowing the field's kind. `SortKey` is a closed list of created,
+updated and title, so a priority field can be stored and never ordered by.
 
-So a tracker where an agent cannot ask "what is assigned to me and not done" is
-a tracker agents cannot work from. That is the gap worth closing, and the
-temptation is to close it with a query language.
+A tracker where an agent cannot ask "what is assigned to me and not done" is
+one agents cannot work from. The temptation is to answer that with a query
+language, and ADR-0002 is what stops it: a filesystem store must be able to
+answer anything the port offers.
 
-ADR-0002 is the constraint: a filesystem store must be able to answer anything
-the port offers. That rules out ranked search and indexes, and it is what keeps
-this from becoming a database.
+## Decision
 
-## What has to be decided
+**Field matches over HTTP.** The edge looks up the field's kind in the schema
+and builds the right `Value`. That the HTTP layer now needs the schema is a
+real cost, accepted because this is the single highest-value gap for agents and
+the domain already supports the match.
 
-**Typed field matches over HTTP.** The domain already supports them. What is
-missing is schema-aware parsing at the edge: given `?field.priority=high`, the
-handler must look up the field's kind to build the right `Value`. That is a
-real cost — the HTTP layer starts needing the schema — and it is the single
-highest-value gap for agents.
+**Sorting widens to orderable field kinds** — number, date and duration. That
+is what makes priority and due date usable at all, and it stays a bounded set
+rather than an expression.
 
-**Ordering by a field.** Widening `SortKey` from a fixed list to a bounded set
-of orderable kinds — number, date, duration — makes priority and due date
-usable without an expression language.
+**A substring filter over title and body**, ANDed with everything else, with no
+ranking. Any backend can answer it by reading what it already reads.
 
-**Range comparators.** "Due before X" needs more than equality on at least date
-and number. Adding one comparator to some kinds is a small change that is hard
-to stop growing.
+**No range comparators.** "Due before Friday" is refused for now. This is the
+piece most likely to grow into a query language — one comparator on one kind is
+never where it stops — and nothing yet needs it. A caller wanting overdue items
+can fetch the project's items and filter.
 
-**A substring filter.** Title and body, ANDed with everything else, no ranking.
-Any backend can answer it by reading what it already reads. Ranking and fuzzy
-matching cannot, and are refused (see the product spec).
+**No ranked or fuzzy search, ever.** It cannot be honoured by a filesystem
+adapter without an index, which ADR-0002 forbids as a difference between
+adapters. Agents query structurally, not by recall.
 
-## Questions to settle
+## Consequences
 
-1. Do field matches over HTTP happen, given the edge must then know the schema
-   to parse a value?
-2. Does `SortKey` widen to orderable field kinds, or stay closed?
-3. Do range comparators arrive now, or wait for something that needs them? They
-   are the thing most likely to grow into a query language.
-4. Is a substring filter on title and body worth it, or is fetch-and-filter
-   good enough at this scale?
+**Every widening is a promise every future adapter must keep.** A SQL store
+would find all of this trivial. The filesystem store answers a substring filter
+by reading every item in the project, which is honest and bounded by how large
+one project gets — and if that stops being true, the answer is an index behind
+the same port, not a narrower port.
 
-## Consequences either way
+**The HTTP edge now depends on the schema**, which it did not before. That is a
+new coupling in a layer that had none, and the reason it is acceptable is that
+`scopes` already hands out both from one place.
 
-Every widening is a promise every future adapter must keep. A SQL store would
-find range comparators trivial; the filesystem store answers them by reading
-every item, which is honest but bounded by how large a project gets.
-
-Refusing all of it is also a real option, and cheaper than it sounds: a client
-can fetch a project's items and filter locally, and at the scale one project
-reaches, that may be indistinguishable.
+**Refusing comparators will be felt.** "Due this week" is an obvious thing to
+want, and the answer for now is that the client filters. If that becomes the
+common case rather than the rare one, this decision is worth revisiting with
+evidence rather than anticipation.

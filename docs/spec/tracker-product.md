@@ -5,9 +5,9 @@ show it in. What it does not have is a product: no board, no way to configure
 anything, no way to edit an item beyond moving it between statuses.
 
 This is the survey of that gap — what is missing, what only looks missing, and
-what is deliberately refused. The decisions it points to are
+what is deliberately refused. The decisions it led to are
 [ADR-0013](../adr/0013-item-ordering.md) through
-[ADR-0017](../adr/0017-boards-and-views.md), all Proposed.
+[ADR-0017](../adr/0017-boards-and-views.md).
 
 ## Three defects, since fixed
 
@@ -92,7 +92,8 @@ opaque and nothing may parse or infer from one.
 
 A sequential display number is a _new concept_ rather than a change to IDs, so
 it can be added without reversing ADR-0009 — but it needs deciding rather than
-defaulting either way. It is not attached to any of the five proposed ADRs.
+defaulting either way. It is attached to none of ADR-0013 to ADR-0017 and
+remains open.
 
 ## Buildable today, with no decisions
 

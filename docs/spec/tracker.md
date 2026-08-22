@@ -212,8 +212,7 @@ change while what it means does not.
 
 What the tracker needs to become a product — a board, configuration, editing —
 is surveyed in [tracker-product.md](tracker-product.md), which points at
-ADR-0013 to ADR-0017. Those are proposed, not accepted: nothing is built on
-them yet.
+ADR-0013 to ADR-0017, all now accepted.
 
 Beyond that: links and the event feed over HTTP when something needs them, and
 agents, which is what the tracker exists to be worked on by.
