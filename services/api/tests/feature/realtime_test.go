@@ -15,6 +15,7 @@ import (
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/realtime"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/realtimews"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settings"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/settingsbus"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settingshttp"
 )
 
@@ -101,7 +102,7 @@ func realtimeServer(t *testing.T) (string, *bus.Memory) {
 		Port:     "0",
 		Timeouts: config.DefaultServerConfig().HTTP,
 		Mounts: []httpserver.Mount{
-			{Prefix: "/settings/", Handler: settingshttp.New(store, settingshttp.BusAnnouncer{Bus: messages})},
+			{Prefix: "/settings/", Handler: settingshttp.New(settingsbus.New(store, messages))},
 			{Prefix: "/ws", Handler: realtimews.New(hub, realtimews.Options{Origins: []string{"*"}})},
 		},
 	})

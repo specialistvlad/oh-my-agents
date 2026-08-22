@@ -28,7 +28,7 @@ func TestSettingsSurviveThroughTheServer(t *testing.T) {
 		Port:     "0",
 		Timeouts: config.DefaultServerConfig().HTTP,
 		Mounts: []httpserver.Mount{
-			{Prefix: "/settings/", Handler: settingshttp.New(store, nil)},
+			{Prefix: "/settings/", Handler: settingshttp.New(store)},
 		},
 	})
 	if srv == nil {

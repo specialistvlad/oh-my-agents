@@ -5,12 +5,22 @@
 export type Inbound =
   | { type: 'join'; id: string; room: string }
   | { type: 'leave'; id: string; room: string }
-  | { type: 'ping'; id: string };
+  | { type: 'ping'; id: string }
+  | {
+      type: 'set';
+      id: string;
+      key: string;
+      value: unknown;
+      idempotency: string;
+    }
+  | { type: 'delete'; id: string; key: string; idempotency: string };
 
 export type Outbound = {
   type: 'welcome' | 'ack' | 'error' | 'event' | 'resync' | 'pong';
   id?: string;
   room?: string;
+  key?: string;
+  status?: number;
   seq?: number;
   kind?: string;
   data?: unknown;

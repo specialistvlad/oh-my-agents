@@ -10,15 +10,15 @@ import { EventList } from '@/components/EventList';
 import { KeyList } from '@/components/KeyList';
 import { configuration } from '@/core/configuration';
 import { useRealtime } from '@/hooks/useRealtime';
+import { useRealtimeWriter } from '@/hooks/useRealtimeWriter';
 import { useSettingsKeys } from '@/hooks/useSettingsKeys';
-import { useSettingsWriter } from '@/hooks/useSettingsWriter';
 
 export const Route = createFileRoute('/')({ component: Index });
 
 const ROOMS = ['settings'];
 
 function Index() {
-  const { status, events, generation } = useRealtime(
+  const { client, status, events, generation } = useRealtime(
     configuration.apiUrl,
     ROOMS
   );
@@ -26,7 +26,7 @@ function Index() {
     configuration.apiUrl,
     generation
   );
-  const { write, busy, error } = useSettingsWriter(configuration.apiUrl);
+  const { write, remove, busy, error } = useRealtimeWriter(client);
 
   return (
     <Container sx={{ py: 6 }}>
@@ -35,8 +35,9 @@ function Index() {
         <ConnectionBadge status={status} />
       </Stack>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        State is fetched once when the rooms are joined, then updated over a
-        WebSocket. Nothing on this page polls.
+        One socket carries writes out and events back. State is fetched once
+        when the rooms are joined; after that nothing on this page polls or
+        refetches.
       </Typography>
 
       <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
@@ -53,6 +54,12 @@ function Index() {
           disabled={busy}
           onClick={() => write('demo/counter', { n: events.length })}>
           Write another
+        </Button>
+        <Button
+          variant="outlined"
+          disabled={busy}
+          onClick={() => remove('demo/clicked')}>
+          Delete one
         </Button>
       </Stack>
       {error ? <Typography color="error">{error}</Typography> : null}

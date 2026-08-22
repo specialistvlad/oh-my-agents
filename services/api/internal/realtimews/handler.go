@@ -10,6 +10,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/bus"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/idempotency"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/realtime"
 )
 
@@ -43,6 +44,14 @@ type Options struct {
 	// without closing. Zero means the defaults; tests shorten them.
 	PingEvery   time.Duration
 	PingTimeout time.Duration
+
+	// Settings is the write surface exposed over the socket. Nil serves a
+	// read-only socket, which is what a process with nothing to write does.
+	Settings Settings
+
+	// Replays remembers commands so a reconnecting client can safely send
+	// again what it never saw acknowledged. Nil gets a default.
+	Replays *idempotency.Keys
 }
 
 func (o Options) pingEvery() time.Duration {
@@ -66,6 +75,9 @@ func (o Options) pingTimeout() time.Duration {
 // must not be reachable from an untrusted network until auth exists — the
 // prerequisite ADR-0008 records.
 func New(h Hub, opts Options) http.Handler {
+	if opts.Replays == nil {
+		opts.Replays = idempotency.New(idempotency.Options{})
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sock, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 			OriginPatterns: opts.Origins,
@@ -90,7 +102,7 @@ func serve(ctx context.Context, sock *websocket.Conn, conn *realtime.Conn, opts 
 	if err := write(ctx, sock, Outbound{Type: KindWelcome}); err != nil {
 		return
 	}
-	go read(ctx, cancel, sock, conn)
+	go read(ctx, cancel, sock, conn, opts)
 	go keepalive(ctx, cancel, sock, opts)
 
 	for {
@@ -110,7 +122,7 @@ func serve(ctx context.Context, sock *websocket.Conn, conn *realtime.Conn, opts 
 
 // read consumes client frames until the socket dies, canceling the
 // connection's context so the writer stops too.
-func read(ctx context.Context, cancel context.CancelFunc, sock *websocket.Conn, conn *realtime.Conn) {
+func read(ctx context.Context, cancel context.CancelFunc, sock *websocket.Conn, conn *realtime.Conn, opts Options) {
 	defer cancel()
 	for {
 		var in Inbound
@@ -120,7 +132,7 @@ func read(ctx context.Context, cancel context.CancelFunc, sock *websocket.Conn, 
 			}
 			return
 		}
-		if err := write(ctx, sock, handle(in, conn)); err != nil {
+		if err := write(ctx, sock, handle(ctx, in, conn, opts)); err != nil {
 			return
 		}
 	}
@@ -155,7 +167,7 @@ func keepalive(ctx context.Context, cancel context.CancelFunc, sock *websocket.C
 
 // handle applies one client frame and returns the reply. Every reply echoes
 // the command's id, which is what makes concurrent commands distinguishable.
-func handle(in Inbound, conn *realtime.Conn) Outbound {
+func handle(ctx context.Context, in Inbound, conn *realtime.Conn, opts Options) Outbound {
 	switch in.Type {
 	case KindJoin:
 		if in.Room == "" {
@@ -171,6 +183,8 @@ func handle(in Inbound, conn *realtime.Conn) Outbound {
 		return Outbound{Type: KindAck, ID: in.ID, Room: in.Room}
 	case KindPing:
 		return Outbound{Type: KindPong, ID: in.ID}
+	case KindSet, KindDelete:
+		return mutate(ctx, in, opts.Settings, opts.Replays)
 	default:
 		return Outbound{Type: KindError, ID: in.ID, Error: "unknown frame type " + in.Type}
 	}

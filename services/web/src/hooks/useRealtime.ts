@@ -8,6 +8,8 @@ import { socketUrl } from '@/realtime/url';
 const KEEP = 50;
 
 type Live = {
+  /** The connection itself, for sending commands over. */
+  client: RealtimeClient;
   status: Status;
   events: RealtimeEvent[];
   /**
@@ -59,5 +61,5 @@ export function useRealtime(apiUrl: string, rooms: string[]): Live {
     return () => joined.forEach((room) => client.leave(room));
   }, [client, key]);
 
-  return { status, events, generation };
+  return { client, status, events, generation };
 }

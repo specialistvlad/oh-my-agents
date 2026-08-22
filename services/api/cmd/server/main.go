@@ -13,6 +13,7 @@ import (
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/realtime"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/realtimews"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settings"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/settingsbus"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settingshttp"
 )
 
@@ -33,17 +34,21 @@ func run() int {
 
 	// The composition root: every dependency is built here and handed
 	// down, so the wiring is readable in one place (ADR-0003).
-	store, err := settings.NewFS(app.SettingsDir)
+	files, err := settings.NewFS(app.SettingsDir)
 	if err != nil {
 		slog.Error("cannot locate the workspace", "err", err)
 		return 1
 	}
-	slog.Info("workspace ready", "dir", store.Dir())
+	slog.Info("workspace ready", "dir", files.Dir())
 
 	// The bus is in-memory until VALKEY_URL says otherwise (ADR-0008), so
 	// this runs with nothing installed.
 	messages := bus.NewMemory()
 	defer func() { _ = messages.Close() }()
+
+	// Announcing wraps the store, so every write is heard however it
+	// arrived — over HTTP or over the socket.
+	store := settingsbus.New(files, messages)
 
 	hub := realtime.New()
 	ctx, stopHub := context.WithCancel(context.Background())
@@ -66,8 +71,11 @@ func run() int {
 		Origins:     app.AllowedOrigins,
 		Timeouts:    app.Server.HTTP,
 		Mounts: []httpserver.Mount{
-			{Prefix: "/settings/", Handler: settingshttp.New(store, settingshttp.BusAnnouncer{Bus: messages})},
-			{Prefix: "/ws", Handler: realtimews.New(hub, realtimews.Options{Origins: app.AllowedOrigins})},
+			{Prefix: "/settings/", Handler: settingshttp.New(store)},
+			{Prefix: "/ws", Handler: realtimews.New(hub, realtimews.Options{
+				Origins:  app.AllowedOrigins,
+				Settings: store,
+			})},
 		},
 	})
 	if srv == nil {

@@ -17,6 +17,10 @@ const (
 	// KindPing asks for a pong, so a client can tell a live connection from
 	// one that is merely open.
 	KindPing = "ping"
+	// KindSet writes a setting.
+	KindSet = "set"
+	// KindDelete removes one.
+	KindDelete = "delete"
 )
 
 // Frame kinds the server sends.
@@ -48,15 +52,33 @@ type Inbound struct {
 	Type string `json:"type"`
 	ID   string `json:"id,omitempty"`
 	Room string `json:"room,omitempty"`
+
+	// Key and Value carry a mutation.
+	Key   string          `json:"key,omitempty"`
+	Value json.RawMessage `json:"value,omitempty"`
+
+	// Idempotency makes a command safe to send twice.
+	//
+	// A client that never saw an acknowledgement cannot know whether its
+	// command arrived, so after reconnecting its only sensible move is to
+	// send it again. Without this the replay applies the write a second
+	// time — and for a delete, reports a failure for something that in fact
+	// succeeded. Absent means "apply it every time", which is correct for a
+	// command the client is willing to repeat.
+	Idempotency string `json:"idempotency,omitempty"`
 }
 
 // Outbound is a frame to a client.
 type Outbound struct {
-	Type  string          `json:"type"`
-	ID    string          `json:"id,omitempty"`
-	Room  string          `json:"room,omitempty"`
-	Seq   uint64          `json:"seq,omitempty"`
-	Kind  string          `json:"kind,omitempty"`
-	Data  json.RawMessage `json:"data,omitempty"`
-	Error string          `json:"error,omitempty"`
+	Type string `json:"type"`
+	ID   string `json:"id,omitempty"`
+	Room string `json:"room,omitempty"`
+	Key  string `json:"key,omitempty"`
+	// Status is the code an HTTP client would have seen for the same
+	// failure, so both edges describe one failure one way.
+	Status int             `json:"status,omitempty"`
+	Seq    uint64          `json:"seq,omitempty"`
+	Kind   string          `json:"kind,omitempty"`
+	Data   json.RawMessage `json:"data,omitempty"`
+	Error  string          `json:"error,omitempty"`
 }

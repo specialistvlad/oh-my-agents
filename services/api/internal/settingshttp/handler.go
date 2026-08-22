@@ -18,16 +18,12 @@ import (
 // unbounded reader writing straight to disk is not something to leave open.
 const maxBody = 1 << 20
 
-// Announcer is told about writes so they can reach connected clients.
-//
-// It lives at this edge rather than inside the store because publishing is
-// not storage's job, and a nil Announcer is valid — the handler serves
-// perfectly well with nothing listening.
-type Announcer interface {
-	Announce(ctx context.Context, kind string, key settings.Key)
-}
-
 // Store is what serving settings needs and nothing more.
+//
+// Announcing a write is not this package's business: it wraps whatever store
+// it is handed, and a store that announces (internal/settingsbus) satisfies
+// this interface unchanged. That is what keeps two write edges from each
+// needing their own copy of the announcement.
 type Store interface {
 	Get(ctx context.Context, key settings.Key) (settings.Document, error)
 	Set(ctx context.Context, key settings.Key, doc settings.Document) error
@@ -47,7 +43,7 @@ type Store interface {
 //
 // There is no authentication. Nothing in this service has any yet, and until
 // that changes this must not be exposed beyond a trusted network.
-func New(s Store, a Announcer) http.Handler {
+func New(s Store) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		keys, err := s.Keys(r.Context())
@@ -68,20 +64,19 @@ func New(s Store, a Announcer) http.Handler {
 		_, _ = w.Write(doc)
 	})
 	mux.HandleFunc("PUT /{key...}", func(w http.ResponseWriter, r *http.Request) {
-		put(w, r, s, a)
+		put(w, r, s)
 	})
 	mux.HandleFunc("DELETE /{key...}", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.Delete(r.Context(), key(r)); err != nil {
 			writeErr(w, err)
 			return
 		}
-		announce(r.Context(), a, "setting.deleted", key(r))
 		w.WriteHeader(http.StatusNoContent)
 	})
 	return mux
 }
 
-func put(w http.ResponseWriter, r *http.Request, s Store, a Announcer) {
+func put(w http.ResponseWriter, r *http.Request, s Store) {
 	doc, err := readBody(w, r)
 	if errors.Is(err, errTooLarge) {
 		writeJSON(w, http.StatusRequestEntityTooLarge, errBody{Error: err.Error()})
@@ -95,7 +90,6 @@ func put(w http.ResponseWriter, r *http.Request, s Store, a Announcer) {
 		writeErr(w, err)
 		return
 	}
-	announce(r.Context(), a, "setting.changed", key(r))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -119,14 +113,6 @@ func writeErr(w http.ResponseWriter, err error) {
 		writeJSON(w, http.StatusRequestTimeout, errBody{Error: err.Error()})
 	default:
 		writeJSON(w, http.StatusInternalServerError, errBody{Error: "internal error"})
-	}
-}
-
-// announce is nil-safe, so the handler has one path whether or not anything
-// is listening.
-func announce(ctx context.Context, a Announcer, kind string, key settings.Key) {
-	if a != nil {
-		a.Announce(ctx, kind, key)
 	}
 }
 

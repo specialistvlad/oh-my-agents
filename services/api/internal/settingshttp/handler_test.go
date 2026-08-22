@@ -16,7 +16,7 @@ import (
 func serve(t *testing.T) (http.Handler, settings.Store) {
 	t.Helper()
 	s := settings.NewMemory()
-	return settingshttp.New(s, nil), s
+	return settingshttp.New(s), s
 }
 
 func do(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {
@@ -89,7 +89,7 @@ func TestTraversalIsRefused(t *testing.T) {
 func TestNothingEscapesTheRoot(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "root")
 	outside := filepath.Join(filepath.Dir(root), "escaped.json")
-	h := settingshttp.New(mustFS(t, root), nil)
+	h := settingshttp.New(mustFS(t, root))
 
 	for _, path := range []string{
 		"/%2e%2e/escaped", "/%2e%2e%2fescaped", "/a/%2e%2e/%2e%2e/escaped", "/../escaped",
@@ -154,7 +154,7 @@ func TestListIsAlwaysAnArray(t *testing.T) {
 // The handler names no storage technology, so the same tests must pass
 // against a store backed by real files.
 func TestServesAFilesystemStoreIdentically(t *testing.T) {
-	h := settingshttp.New(mustFS(t, t.TempDir()), nil)
+	h := settingshttp.New(mustFS(t, t.TempDir()))
 	if code := do(t, h, http.MethodPut, "/agent/model", `{"m":"opus"}`).Code; code != http.StatusNoContent {
 		t.Fatalf("PUT = %d, want 204", code)
 	}
