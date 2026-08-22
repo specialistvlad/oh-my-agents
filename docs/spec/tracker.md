@@ -151,9 +151,9 @@ translating at their own boundary and is the only place the payload is loose.
 
 ## Next
 
-1. **Filesystem adapter** under `.oma/tracker/`, held to `trackertest`. This is
-   the DB→filesystem swap ADR-0002 names as its reference case.
-2. **HTTP surface**, mounted beside `/settings/`.
+1. **Wire it to projects** at `<project.Root>/tracker/`, with a store per
+   project handed out by `scopes` the way settings already are.
+2. **HTTP and socket surfaces**, under `/projects/{project}/tracker/`.
 3. **Authentication**, before either is reachable from anywhere untrusted.
 
 ## Open questions

@@ -1,4 +1,4 @@
-package memory
+package store
 
 import "github.com/specialistvlad/oh-my-agents/services/api/internal/tracker"
 

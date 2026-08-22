@@ -4,7 +4,7 @@
 // any other adapter by the trackertest suite — including the enforcement
 // ADR-0005 puts on adapters rather than on a layer above them. Everything a
 // filesystem or SQL store must refuse, this refuses too.
-package memory
+package store
 
 import (
 	"context"
@@ -20,6 +20,7 @@ import (
 // what a fake is for.
 type Store struct {
 	mu       sync.RWMutex
+	disk     Persistence
 	clock    tracker.Clock
 	ids      tracker.IDGenerator
 	schema   tracker.Schema
@@ -30,27 +31,54 @@ type Store struct {
 	seq      uint64
 }
 
-// Deps are the ambient dependencies. Both default to the real thing, so a
-// caller that does not care can pass the zero value.
+// Deps are the ambient dependencies. Each defaults to something sensible, so
+// a caller that does not care can pass the zero value.
 type Deps struct {
 	Clock tracker.Clock
 	IDs   tracker.IDGenerator
+
+	// Persistence is where state survives the process. Nil keeps nothing,
+	// which is what a fake wants.
+	Persistence Persistence
 }
 
-// New returns an empty store with no types configured.
-func New(d Deps) *Store {
+// New returns a store holding whatever its persistence already had.
+func New(ctx context.Context, d Deps) (*Store, error) {
 	if d.Clock == nil {
 		d.Clock = tracker.SystemClock{}
 	}
 	if d.IDs == nil {
 		d.IDs = tracker.RandomIDs{}
 	}
-	return &Store{
+	if d.Persistence == nil {
+		d.Persistence = nothing{}
+	}
+	s := &Store{
 		clock:    d.Clock,
 		ids:      d.IDs,
+		disk:     d.Persistence,
 		items:    make(map[tracker.ItemID]tracker.Item),
 		comments: make(map[tracker.CommentID]tracker.Comment),
 	}
+	held, err := d.Persistence.Load(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.schema = held.Schema
+	for _, item := range held.Items {
+		s.items[item.ID] = item
+	}
+	for _, c := range held.Comments {
+		s.comments[c.ID] = c
+	}
+	s.links = held.Links
+	s.events = held.Events
+	for _, e := range held.Events {
+		if e.Seq > s.seq {
+			s.seq = e.Seq
+		}
+	}
+	return s, nil
 }
 
 // Schema implements [tracker.SchemaReader].
@@ -94,6 +122,9 @@ func (s *Store) PutItemType(ctx context.Context, t tracker.ItemType) error {
 				tracker.ErrInvalidSchema, t.ID, item.ID, err)
 		}
 	}
+	if err := s.disk.SaveType(ctx, t); err != nil {
+		return err
+	}
 	s.schema = next
 	return nil
 }
@@ -121,6 +152,9 @@ func (s *Store) DeleteItemType(ctx context.Context, key tracker.TypeID) error {
 		if t.ID != key {
 			kept = append(kept, t)
 		}
+	}
+	if err := s.disk.DeleteType(ctx, key); err != nil {
+		return err
 	}
 	s.schema.Types = kept
 	return nil

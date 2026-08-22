@@ -1,19 +1,24 @@
-package memory
+package store
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/tracker"
 )
 
 // emit appends one event. Callers hold the write lock.
+// A failed append is logged and swallowed. The change it describes has
+// already been persisted and applied, so failing here would report a
+// completed write as an error; the cost is a gap in the feed, which is
+// exactly what readers already handle (ADR-0008).
 func (s *Store) emit(
-	id tracker.ItemID, kind tracker.EventKind, actor tracker.ActorRef,
-	at time.Time, changes []tracker.Change,
+	ctx context.Context, id tracker.ItemID, kind tracker.EventKind,
+	actor tracker.ActorRef, at time.Time, changes []tracker.Change,
 ) {
 	s.seq++
-	s.events = append(s.events, tracker.Event{
+	e := tracker.Event{
 		ID:      tracker.EventID(s.ids.NewID()),
 		Item:    id,
 		Kind:    kind,
@@ -21,30 +26,35 @@ func (s *Store) emit(
 		Actor:   actor,
 		At:      at,
 		Changes: changes,
-	})
+	}
+	if err := s.disk.AppendEvent(ctx, e); err != nil {
+		slog.Warn("cannot record a tracker event", "seq", e.Seq, "kind", kind, "err", err)
+		return
+	}
+	s.events = append(s.events, e)
 }
 
 // emitChanges records an update as the events consumers actually wait on.
 // Status and parent moves get their own kinds because reacting to "this was
 // closed" should not mean sifting a generic update for a reserved key.
-func (s *Store) emitChanges(before, after tracker.Item, actor tracker.ActorRef) {
+func (s *Store) emitChanges(ctx context.Context, before, after tracker.Item, actor tracker.ActorRef) {
 	at := after.UpdatedAt
 	if before.Status != after.Status {
-		s.emit(after.ID, tracker.EventStatusChanged, actor, at, []tracker.Change{{
+		s.emit(ctx, after.ID, tracker.EventStatusChanged, actor, at, []tracker.Change{{
 			Field: tracker.FieldStatus,
 			From:  textOf(string(before.Status)),
 			To:    textOf(string(after.Status)),
 		}})
 	}
 	if !sameParent(before.Parent, after.Parent) {
-		s.emit(after.ID, tracker.EventParentChanged, actor, at, []tracker.Change{{
+		s.emit(ctx, after.ID, tracker.EventParentChanged, actor, at, []tracker.Change{{
 			Field: tracker.FieldParent,
 			From:  itemRefOf(before.Parent),
 			To:    itemRefOf(after.Parent),
 		}})
 	}
 	if changes := contentChanges(before, after); len(changes) > 0 {
-		s.emit(after.ID, tracker.EventItemUpdated, actor, at, changes)
+		s.emit(ctx, after.ID, tracker.EventItemUpdated, actor, at, changes)
 	}
 }
 

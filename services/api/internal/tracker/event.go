@@ -6,19 +6,16 @@ import "time"
 // changed it, when. Events are the record every consumer reads to learn that
 // something happened, rather than polling items for differences.
 type Event struct {
-	ID   EventID
-	Item ItemID
-	Kind EventKind
-
+	ID   EventID   `json:"id"`
+	Item ItemID    `json:"item"`
+	Kind EventKind `json:"kind"`
 	// Seq orders events across the whole feed and never repeats. A reader
 	// resumes by asking for everything after the last Seq it handled.
-	Seq uint64
-
-	Actor ActorRef
-	At    time.Time
-
+	Seq   uint64    `json:"seq"`
+	Actor ActorRef  `json:"actor"`
+	At    time.Time `json:"at"`
 	// Changes is populated for edit events and empty for the rest.
-	Changes []Change
+	Changes []Change `json:"changes"`
 }
 
 // EventKind names what happened.
@@ -62,7 +59,7 @@ const (
 // rather than a kind of its own because a status key is only meaningful
 // against a type, and an event is read without one.
 type Change struct {
-	Field FieldID
-	From  *Value
-	To    *Value
+	Field FieldID `json:"field"`
+	From  *Value  `json:"from"`
+	To    *Value  `json:"to"`
 }

@@ -14,27 +14,24 @@ type Version int64
 // and which keys Fields may carry. An item is meaningless without its
 // [ItemType], and the two are always read together.
 type Item struct {
-	ID     ItemID
-	Type   TypeID
-	Title  string
-	Body   string
-	Status StatusID
-
+	ID     ItemID   `json:"id"`
+	Type   TypeID   `json:"type"`
+	Title  string   `json:"title"`
+	Body   string   `json:"body"`
+	Status StatusID `json:"status"`
 	// Parent is the item directly above this one, nil at the root of a
 	// tree. Depth is unbounded and any type may parent any other; the only
 	// structural rules are that the graph stays acyclic and that a parent
 	// cannot resolve before its descendants do.
-	Parent *ItemID
-
+	Parent *ItemID `json:"parent"`
 	// Fields holds values for the keys declared by Type. A key absent here
 	// has no value; there is no distinction between absent and null.
-	Fields map[FieldID]Value
-
-	CreatedBy ActorRef
-	CreatedAt time.Time
-	UpdatedBy ActorRef
-	UpdatedAt time.Time
-	Version   Version
+	Fields    map[FieldID]Value `json:"fields"`
+	CreatedBy ActorRef          `json:"created_by"`
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedBy ActorRef          `json:"updated_by"`
+	UpdatedAt time.Time         `json:"updated_at"`
+	Version   Version           `json:"version"`
 }
 
 // NewItem is the input to creating an item.
@@ -43,12 +40,12 @@ type Item struct {
 // [ItemType.Initial] status and gets there without consulting the transition
 // graph, so creation cannot be used to sidestep a workflow.
 type NewItem struct {
-	Type   TypeID
-	Title  string
-	Body   string
-	Parent *ItemID
-	Fields map[FieldID]Value
-	Author ActorRef
+	Type   TypeID            `json:"type"`
+	Title  string            `json:"title"`
+	Body   string            `json:"body"`
+	Parent *ItemID           `json:"parent"`
+	Fields map[FieldID]Value `json:"fields"`
+	Author ActorRef          `json:"author"`
 }
 
 // Patch is a partial update. A nil pointer means "leave alone", which is

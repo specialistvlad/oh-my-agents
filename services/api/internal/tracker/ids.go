@@ -106,6 +106,6 @@ const (
 // ActorRef points at whoever performed an action. ID is scoped by Kind, so a
 // human and an agent may share an ID string without colliding.
 type ActorRef struct {
-	Kind ActorKind
-	ID   string
+	Kind ActorKind `json:"kind"`
+	ID   string    `json:"id"`
 }

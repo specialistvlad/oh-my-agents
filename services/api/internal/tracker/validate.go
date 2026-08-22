@@ -42,5 +42,5 @@ var (
 // answered from a schema alone and belong to the store, which is where
 // [Store] documents them.
 type Schema struct {
-	Types []ItemType
+	Types []ItemType `json:"types"`
 }

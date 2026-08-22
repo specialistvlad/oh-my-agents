@@ -1,17 +1,22 @@
-package memory_test
+package store_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/tracker"
-	"github.com/specialistvlad/oh-my-agents/services/api/internal/tracker/memory"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/tracker/store"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/tracker/trackertest"
 )
 
+// The core with nothing behind it: the fake every other test builds on.
 func TestConformance(t *testing.T) {
-	trackertest.Run(t, func(_ *testing.T) tracker.Store {
-		return memory.New(memory.Deps{Clock: &stepClock{}, IDs: &countingIDs{}})
+	trackertest.Run(t, func(t *testing.T) tracker.Store {
+		s, err := store.New(t.Context(), store.Deps{Clock: &stepClock{}, IDs: &countingIDs{}})
+		if err != nil {
+			t.Fatalf("New: %v", err)
+		}
+		return s
 	})
 }
 

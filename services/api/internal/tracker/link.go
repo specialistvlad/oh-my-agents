@@ -6,11 +6,11 @@ import "time"
 // Parentage lives on [Item.Parent] and forms the tree; links are the graph
 // laid over it, and they may cross trees freely.
 type Link struct {
-	From      ItemID
-	Kind      LinkKind
-	To        ItemID
-	CreatedBy ActorRef
-	CreatedAt time.Time
+	From      ItemID    `json:"from"`
+	Kind      LinkKind  `json:"kind"`
+	To        ItemID    `json:"to"`
+	CreatedBy ActorRef  `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // LinkKind is the meaning of a link, read left to right: From <kind> To.

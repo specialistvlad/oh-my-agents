@@ -2,26 +2,22 @@ package tracker
 
 // FieldDef declares one custom field on one [ItemType].
 type FieldDef struct {
-	ID          FieldID
-	Name        string
-	Description string
-	Kind        FieldKind
-
+	ID          FieldID   `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Kind        FieldKind `json:"kind"`
 	// Required rejects an item that has no value for this field. A
 	// transition's RequiredFields can demand a value later in the
 	// lifecycle instead, for fields that cannot be known at creation.
-	Required bool
-
+	Required bool `json:"required"`
 	// Options are the permitted choices for [KindSelect] and
 	// [KindMultiSelect], and must be empty for every other kind.
-	Options []Option
-
+	Options []Option `json:"options"`
 	// Default is applied at creation when the caller supplies no value.
-	Default *Value
-
+	Default *Value `json:"default"`
 	// ItemTypes narrows [KindItem] to particular types, e.g. a "blocked by"
 	// field that may only point at bugs. Empty means any type.
-	ItemTypes []TypeID
+	ItemTypes []TypeID `json:"item_types"`
 }
 
 // FieldKind is the type of a field's value. It determines what [Value.Raw]
@@ -58,8 +54,8 @@ const (
 // Option is one choice of a select field. Key is stable; Name is the label
 // and may be edited freely.
 type Option struct {
-	ID   OptionID
-	Name string
+	ID   OptionID `json:"id"`
+	Name string   `json:"name"`
 }
 
 // Reserved field keys name the built-in parts of an [Item] so that a

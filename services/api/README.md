@@ -48,6 +48,8 @@ Passing it is not the same as being simple.
 | `internal/realtime`       | Rooms and per-connection queues.                     |
 | `internal/realtimews`     | The realtime hub over a WebSocket.                   |
 | `internal/tracker`        | Task tracker domain model, ports and validation.     |
+| `…/tracker/store`         | The tracker's rules, over a persistence port.        |
+| `…/tracker/fs`            | File persistence for that store.                     |
 | `…/tracker/memory`        | In-memory store. Enforces every invariant itself.    |
 | `…/tracker/trackertest`   | Conformance suite every store must pass.             |
 | `…/settings/settingstest` | The same, for settings stores.                       |

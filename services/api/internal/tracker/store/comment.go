@@ -1,4 +1,4 @@
-package memory
+package store
 
 import (
 	"context"
@@ -63,8 +63,11 @@ func (s *Store) AddComment(ctx context.Context, n tracker.NewComment) (tracker.C
 		CreatedAt: now,
 		Version:   1,
 	}
+	if err := s.disk.SaveComment(ctx, c); err != nil {
+		return tracker.Comment{}, err
+	}
 	s.comments[c.ID] = c
-	s.emit(n.Item, tracker.EventCommentAdded, n.Author, now, nil)
+	s.emit(ctx, n.Item, tracker.EventCommentAdded, n.Author, now, nil)
 	return cloneComment(c), nil
 }
 
@@ -105,8 +108,11 @@ func (s *Store) EditComment(
 	c.Body = body
 	c.EditedAt = &now
 	c.Version++
+	if err := s.disk.SaveComment(ctx, c); err != nil {
+		return tracker.Comment{}, err
+	}
 	s.comments[id] = c
-	s.emit(c.Item, tracker.EventCommentEdited, by, now, nil)
+	s.emit(ctx, c.Item, tracker.EventCommentEdited, by, now, nil)
 	return cloneComment(c), nil
 }
 
@@ -124,8 +130,11 @@ func (s *Store) DeleteComment(
 	if err != nil {
 		return err
 	}
+	if err := s.disk.DeleteComment(ctx, id); err != nil {
+		return err
+	}
 	delete(s.comments, id)
-	s.emit(c.Item, tracker.EventCommentDeleted, by, s.clock.Now(), nil)
+	s.emit(ctx, c.Item, tracker.EventCommentDeleted, by, s.clock.Now(), nil)
 	return nil
 }
 

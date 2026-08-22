@@ -1,4 +1,4 @@
-package memory
+package store
 
 import (
 	"context"
@@ -49,8 +49,12 @@ func (s *Store) AddLink(ctx context.Context, l tracker.Link) error {
 		return nil
 	}
 	l.CreatedAt = s.clock.Now()
-	s.links = append(s.links, l)
-	s.emit(l.From, tracker.EventLinkAdded, l.CreatedBy, l.CreatedAt, nil)
+	next := append(append([]tracker.Link(nil), s.links...), l)
+	if err := s.disk.SaveLinks(ctx, next); err != nil {
+		return err
+	}
+	s.links = next
+	s.emit(ctx, l.From, tracker.EventLinkAdded, l.CreatedBy, l.CreatedAt, nil)
 	return nil
 }
 
@@ -67,8 +71,12 @@ func (s *Store) RemoveLink(ctx context.Context, l tracker.Link, by tracker.Actor
 		return fmt.Errorf("%w: link %q %s %q", tracker.ErrNotFound, l.From, l.Kind, l.To)
 	}
 	removed := s.links[at]
-	s.links = append(s.links[:at], s.links[at+1:]...)
-	s.emit(removed.From, tracker.EventLinkRemoved, by, s.clock.Now(), nil)
+	next := append(append([]tracker.Link(nil), s.links[:at]...), s.links[at+1:]...)
+	if err := s.disk.SaveLinks(ctx, next); err != nil {
+		return err
+	}
+	s.links = next
+	s.emit(ctx, removed.From, tracker.EventLinkRemoved, by, s.clock.Now(), nil)
 	return nil
 }
 

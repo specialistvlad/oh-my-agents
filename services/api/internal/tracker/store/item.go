@@ -1,4 +1,4 @@
-package memory
+package store
 
 import (
 	"context"
@@ -54,8 +54,11 @@ func (s *Store) CreateItem(ctx context.Context, n tracker.NewItem) (tracker.Item
 			return tracker.Item{}, err
 		}
 	}
+	if err := s.disk.SaveItem(ctx, item); err != nil {
+		return tracker.Item{}, err
+	}
 	s.items[item.ID] = item
-	s.emit(item.ID, tracker.EventItemCreated, n.Author, now, nil)
+	s.emit(ctx, item.ID, tracker.EventItemCreated, n.Author, now, nil)
 	return clone(item), nil
 }
 
@@ -90,8 +93,11 @@ func (s *Store) UpdateItem(
 	next.UpdatedBy = p.Author
 	next.UpdatedAt = s.clock.Now()
 
+	if err := s.disk.SaveItem(ctx, next); err != nil {
+		return tracker.Item{}, err
+	}
 	s.items[id] = next
-	s.emitChanges(current, next, p.Author)
+	s.emitChanges(ctx, current, next, p.Author)
 	return clone(next), nil
 }
 
@@ -120,8 +126,11 @@ func (s *Store) DeleteItem(
 			return fmt.Errorf("%w: %q still parents %q", tracker.ErrHasChildren, id, child.ID)
 		}
 	}
+	if err := s.disk.DeleteItem(ctx, id); err != nil {
+		return err
+	}
 	delete(s.items, id)
-	s.emit(id, tracker.EventItemDeleted, by, s.clock.Now(), nil)
+	s.emit(ctx, id, tracker.EventItemDeleted, by, s.clock.Now(), nil)
 	return nil
 }
 
