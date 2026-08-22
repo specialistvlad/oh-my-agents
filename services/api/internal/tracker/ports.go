@@ -32,7 +32,7 @@ type SchemaReader interface {
 // invalidate items already stored is rejected too.
 type SchemaWriter interface {
 	PutItemType(ctx context.Context, t ItemType) error
-	DeleteItemType(ctx context.Context, key TypeKey) error
+	DeleteItemType(ctx context.Context, key TypeID) error
 }
 
 // ItemReader reads one item by identity.

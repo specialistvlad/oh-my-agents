@@ -7,19 +7,19 @@ import (
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/tracker"
 )
 
-func status(k tracker.StatusKey) *tracker.StatusKey { return &k }
+func status(k tracker.StatusID) *tracker.StatusID { return &k }
 
 func value(v tracker.Value) *tracker.Value { return &v }
 
 func TestPatchAllowsADeclaredTransition(t *testing.T) {
-	if err := bugSchema().ValidatePatch(openBug(), tracker.Patch{Status: status("doing")}); err != nil {
+	if err := bugSchema().ValidatePatch(openBug(), tracker.Patch{Status: status(statusDoing)}); err != nil {
 		t.Errorf("open -> doing: %v", err)
 	}
 }
 
 func TestPatchRefusesAnUndeclaredTransition(t *testing.T) {
 	// open -> fixed is not in the graph; open -> doing -> fixed is.
-	err := bugSchema().ValidatePatch(openBug(), tracker.Patch{Status: status("fixed")})
+	err := bugSchema().ValidatePatch(openBug(), tracker.Patch{Status: status(statusFixed)})
 	if !errors.Is(err, tracker.ErrTransitionNotAllowed) {
 		t.Errorf("open -> fixed = %v, want ErrTransitionNotAllowed", err)
 	}
@@ -30,15 +30,15 @@ func TestPatchRefusesAnUndeclaredTransition(t *testing.T) {
 func TestTransitionRequirementsSeeTheOutcome(t *testing.T) {
 	s := bugSchema()
 	doing := openBug()
-	doing.Status = "doing"
+	doing.Status = statusDoing
 
-	if err := s.ValidatePatch(doing, tracker.Patch{Status: status("fixed")}); !errors.Is(err, tracker.ErrFieldRequired) {
+	if err := s.ValidatePatch(doing, tracker.Patch{Status: status(statusFixed)}); !errors.Is(err, tracker.ErrFieldRequired) {
 		t.Errorf("moving to fixed without a resolution = %v, want ErrFieldRequired", err)
 	}
 
 	both := tracker.Patch{
-		Status: status("fixed"),
-		Fields: map[tracker.FieldKey]*tracker.Value{"resolution": value(tracker.Markdown("fixed it"))},
+		Status: status(statusFixed),
+		Fields: map[tracker.FieldID]*tracker.Value{fieldResolution: value(tracker.Markdown("fixed it"))},
 	}
 	if err := s.ValidatePatch(doing, both); err != nil {
 		t.Errorf("setting the resolution and moving together: %v", err)
@@ -46,7 +46,7 @@ func TestTransitionRequirementsSeeTheOutcome(t *testing.T) {
 }
 
 func TestPatchRefusesClearingARequiredField(t *testing.T) {
-	p := tracker.Patch{Fields: map[tracker.FieldKey]*tracker.Value{"summary": nil}}
+	p := tracker.Patch{Fields: map[tracker.FieldID]*tracker.Value{fieldSummary: nil}}
 	if err := bugSchema().ValidatePatch(openBug(), p); !errors.Is(err, tracker.ErrFieldRequired) {
 		t.Errorf("clearing summary = %v, want ErrFieldRequired", err)
 	}
@@ -61,7 +61,7 @@ func TestPatchRefusesSettingAndClearingTheParent(t *testing.T) {
 }
 
 func TestPatchRefusesUndeclaredFields(t *testing.T) {
-	p := tracker.Patch{Fields: map[tracker.FieldKey]*tracker.Value{"invented": value(tracker.Text("x"))}}
+	p := tracker.Patch{Fields: map[tracker.FieldID]*tracker.Value{"invented": value(tracker.Text("x"))}}
 	if err := bugSchema().ValidatePatch(openBug(), p); !errors.Is(err, tracker.ErrUnknownField) {
 		t.Errorf("ValidatePatch = %v, want ErrUnknownField", err)
 	}
@@ -70,7 +70,7 @@ func TestPatchRefusesUndeclaredFields(t *testing.T) {
 // A patch that does not move the status is not a transition, so a no-op
 // status must not be judged against the graph.
 func TestRestatingTheCurrentStatusIsNotATransition(t *testing.T) {
-	if err := bugSchema().ValidatePatch(openBug(), tracker.Patch{Status: status("open")}); err != nil {
+	if err := bugSchema().ValidatePatch(openBug(), tracker.Patch{Status: status(statusOpen)}); err != nil {
 		t.Errorf("restating the current status: %v", err)
 	}
 }
@@ -78,11 +78,11 @@ func TestRestatingTheCurrentStatusIsNotATransition(t *testing.T) {
 // The patch must not mutate the item it is validated against.
 func TestValidatePatchLeavesTheItemAlone(t *testing.T) {
 	item := openBug()
-	p := tracker.Patch{Fields: map[tracker.FieldKey]*tracker.Value{"resolution": value(tracker.Markdown("x"))}}
+	p := tracker.Patch{Fields: map[tracker.FieldID]*tracker.Value{fieldResolution: value(tracker.Markdown("x"))}}
 	if err := bugSchema().ValidatePatch(item, p); err != nil {
 		t.Fatalf("ValidatePatch: %v", err)
 	}
-	if _, held := item.Fields["resolution"]; held {
+	if _, held := item.Fields[fieldResolution]; held {
 		t.Error("ValidatePatch wrote through to the item it was checking")
 	}
 }

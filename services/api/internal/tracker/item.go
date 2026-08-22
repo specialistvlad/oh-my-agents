@@ -15,10 +15,10 @@ type Version int64
 // [ItemType], and the two are always read together.
 type Item struct {
 	ID     ItemID
-	Type   TypeKey
+	Type   TypeID
 	Title  string
 	Body   string
-	Status StatusKey
+	Status StatusID
 
 	// Parent is the item directly above this one, nil at the root of a
 	// tree. Depth is unbounded and any type may parent any other; the only
@@ -28,7 +28,7 @@ type Item struct {
 
 	// Fields holds values for the keys declared by Type. A key absent here
 	// has no value; there is no distinction between absent and null.
-	Fields map[FieldKey]Value
+	Fields map[FieldID]Value
 
 	CreatedBy ActorRef
 	CreatedAt time.Time
@@ -43,11 +43,11 @@ type Item struct {
 // [ItemType.Initial] status and gets there without consulting the transition
 // graph, so creation cannot be used to sidestep a workflow.
 type NewItem struct {
-	Type   TypeKey
+	Type   TypeID
 	Title  string
 	Body   string
 	Parent *ItemID
-	Fields map[FieldKey]Value
+	Fields map[FieldID]Value
 	Author ActorRef
 }
 
@@ -56,7 +56,7 @@ type NewItem struct {
 type Patch struct {
 	Title  *string
 	Body   *string
-	Status *StatusKey
+	Status *StatusID
 
 	// Parent reparents the item, moving its whole subtree with it.
 	// ClearParent promotes it to a root instead, and the two are mutually
@@ -66,7 +66,7 @@ type Patch struct {
 
 	// Fields sets the named fields. A nil entry clears that field; keys
 	// absent from the map are left as they are.
-	Fields map[FieldKey]*Value
+	Fields map[FieldID]*Value
 
 	Author ActorRef
 }

@@ -8,7 +8,7 @@ package tracker
 // but the shape of this struct: a bug's statuses and a release's statuses are
 // unrelated sets, and neither can be used on the other's items.
 type ItemType struct {
-	Key         TypeKey
+	ID          TypeID
 	Name        string
 	Description string
 
@@ -23,7 +23,7 @@ type ItemType struct {
 
 	// Initial is the status a newly created item enters. It must name one
 	// of Statuses. Creation does not go through Transitions.
-	Initial StatusKey
+	Initial StatusID
 
 	// Transitions is the allowed-moves graph, and it is always enforced: a
 	// move not listed here is rejected. A type with no transitions can be
@@ -37,7 +37,7 @@ type ItemType struct {
 // Key and Name are independent so a column can be relabelled without
 // invalidating stored items or breaking logic that keys off it.
 type Status struct {
-	Key      StatusKey
+	ID       StatusID
 	Name     string
 	Category StatusCategory
 }
@@ -69,10 +69,10 @@ const (
 
 // Transition is one permitted move in a type's workflow.
 type Transition struct {
-	From StatusKey
-	To   StatusKey
+	From StatusID
+	To   StatusID
 
 	// RequiredFields must hold a value before the move is allowed. This is
 	// how a workflow demands, say, a resolution note on the way to done.
-	RequiredFields []FieldKey
+	RequiredFields []FieldID
 }

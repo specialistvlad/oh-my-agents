@@ -14,7 +14,7 @@ func runSchema(t *testing.T, newStore Factory) {
 		if err != nil {
 			t.Fatalf("Schema: %v", err)
 		}
-		if _, ok := schema.Type("bug"); !ok {
+		if _, ok := schema.Type(TypeBug); !ok {
 			t.Error("the stored type is missing from the schema")
 		}
 	})
@@ -34,8 +34,8 @@ func runSchema(t *testing.T, newStore Factory) {
 		create(t, s, tracker.NewItem{})
 
 		narrowed := BugType()
-		narrowed.Statuses = narrowed.Statuses[1:] // drops "open", where items sit
-		narrowed.Initial = "doing"
+		narrowed.Statuses = narrowed.Statuses[1:] // drops StatusOpen, where items sit
+		narrowed.Initial = StatusDoing
 		narrowed.Transitions = nil
 		if err := s.PutItemType(ctx, narrowed); !errors.Is(err, tracker.ErrInvalidSchema) {
 			t.Errorf("PutItemType = %v, want ErrInvalidSchema", err)
@@ -45,7 +45,7 @@ func runSchema(t *testing.T, newStore Factory) {
 	t.Run("refuses to delete a type in use", func(t *testing.T) {
 		s, ctx := fixture(t, newStore)
 		create(t, s, tracker.NewItem{})
-		if err := s.DeleteItemType(ctx, "bug"); err == nil {
+		if err := s.DeleteItemType(ctx, TypeBug); err == nil {
 			t.Error("DeleteItemType removed a type that still has items")
 		}
 	})
@@ -62,7 +62,7 @@ func runItems(t *testing.T, newStore Factory) {
 	t.Run("creates at the initial status", func(t *testing.T) {
 		s, _ := fixture(t, newStore)
 		item := create(t, s, tracker.NewItem{Title: "It breaks"})
-		if item.Status != "open" {
+		if item.Status != StatusOpen {
 			t.Errorf("Status = %q, want the type's initial status", item.Status)
 		}
 		if item.ID == "" {
@@ -76,7 +76,7 @@ func runItems(t *testing.T, newStore Factory) {
 	t.Run("applies defaults", func(t *testing.T) {
 		s, _ := fixture(t, newStore)
 		item := create(t, s, tracker.NewItem{})
-		if o, _ := item.Fields["severity"].Select(); o != "medium" {
+		if o, _ := item.Fields[FieldSeverity].Select(); o != OptionMedium {
 			t.Errorf("severity = %q, want the declared default", o)
 		}
 	})
@@ -89,24 +89,24 @@ func runItems(t *testing.T, newStore Factory) {
 		}{
 			"unknown type": {tracker.NewItem{Type: "nope"}, tracker.ErrUnknownType},
 			"missing required": {
-				tracker.NewItem{Type: "bug", Fields: map[tracker.FieldKey]tracker.Value{}},
+				tracker.NewItem{Type: TypeBug, Fields: map[tracker.FieldID]tracker.Value{}},
 				tracker.ErrFieldRequired,
 			},
 			"undeclared field": {
-				tracker.NewItem{Type: "bug", Fields: map[tracker.FieldKey]tracker.Value{
-					"summary": tracker.Text("x"), "nope": tracker.Text("x"),
+				tracker.NewItem{Type: TypeBug, Fields: map[tracker.FieldID]tracker.Value{
+					FieldSummary: tracker.Text("x"), "nope": tracker.Text("x"),
 				}},
 				tracker.ErrUnknownField,
 			},
 			"wrong kind": {
-				tracker.NewItem{Type: "bug", Fields: map[tracker.FieldKey]tracker.Value{
-					"summary": tracker.Number(1),
+				tracker.NewItem{Type: TypeBug, Fields: map[tracker.FieldID]tracker.Value{
+					FieldSummary: tracker.Number(1),
 				}},
 				tracker.ErrKindMismatch,
 			},
 			"undeclared option": {
-				tracker.NewItem{Type: "bug", Fields: map[tracker.FieldKey]tracker.Value{
-					"summary": tracker.Text("x"), "severity": tracker.Select("nope"),
+				tracker.NewItem{Type: TypeBug, Fields: map[tracker.FieldID]tracker.Value{
+					FieldSummary: tracker.Text("x"), FieldSeverity: tracker.Select("nope"),
 				}},
 				tracker.ErrUnknownOption,
 			},

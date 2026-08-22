@@ -2,7 +2,7 @@ package tracker
 
 // FieldDef declares one custom field on one [ItemType].
 type FieldDef struct {
-	Key         FieldKey
+	ID          FieldID
 	Name        string
 	Description string
 	Kind        FieldKind
@@ -21,7 +21,7 @@ type FieldDef struct {
 
 	// ItemTypes narrows [KindItem] to particular types, e.g. a "blocked by"
 	// field that may only point at bugs. Empty means any type.
-	ItemTypes []TypeKey
+	ItemTypes []TypeID
 }
 
 // FieldKind is the type of a field's value. It determines what [Value.Raw]
@@ -58,7 +58,7 @@ const (
 // Option is one choice of a select field. Key is stable; Name is the label
 // and may be edited freely.
 type Option struct {
-	Key  OptionKey
+	ID   OptionID
 	Name string
 }
 
@@ -67,11 +67,11 @@ type Option struct {
 // for custom fields. The "@" prefix is reserved: a [FieldDef] may not use it.
 const (
 	// FieldTitle is the item's title.
-	FieldTitle FieldKey = "@title"
+	FieldTitle FieldID = "@title"
 	// FieldBody is the item's description.
-	FieldBody FieldKey = "@body"
+	FieldBody FieldID = "@body"
 	// FieldStatus is the item's status.
-	FieldStatus FieldKey = "@status"
+	FieldStatus FieldID = "@status"
 	// FieldParent is the item's parent.
-	FieldParent FieldKey = "@parent"
+	FieldParent FieldID = "@parent"
 )

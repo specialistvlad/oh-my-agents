@@ -10,8 +10,8 @@ type Query struct {
 	// Types, Statuses and Categories each match if the item matches any
 	// member. Categories lets a caller ask for "everything unresolved"
 	// without naming a single user-defined status.
-	Types      []TypeKey
-	Statuses   []StatusKey
+	Types      []TypeID
+	Statuses   []StatusID
 	Categories []StatusCategory
 
 	// Parent restricts to the direct children of one item. Roots is the
@@ -35,7 +35,7 @@ type Query struct {
 
 // FieldMatch is one custom field required to equal one value.
 type FieldMatch struct {
-	Field  FieldKey
+	Field  FieldID
 	Equals Value
 }
 

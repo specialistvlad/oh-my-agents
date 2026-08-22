@@ -25,7 +25,7 @@ func runEvents(t *testing.T, newStore Factory) {
 	t.Run("calls out status changes", func(t *testing.T) {
 		s, ctx := fixture(t, newStore)
 		item := create(t, s, tracker.NewItem{})
-		if _, err := move(t, s, item, "doing"); err != nil {
+		if _, err := move(t, s, item, StatusDoing); err != nil {
 			t.Fatalf("move: %v", err)
 		}
 		page, err := s.Events(ctx, tracker.EventQuery{
@@ -43,7 +43,7 @@ func runEvents(t *testing.T, newStore Factory) {
 		}
 		from, _ := changes[0].From.String()
 		to, _ := changes[0].To.String()
-		if from != "open" || to != "doing" {
+		if from != string(StatusOpen) || to != string(StatusDoing) {
 			t.Errorf("change = %q -> %q, want open -> doing", from, to)
 		}
 	})
@@ -51,9 +51,9 @@ func runEvents(t *testing.T, newStore Factory) {
 	t.Run("records field edits with before and after", func(t *testing.T) {
 		s, ctx := fixture(t, newStore)
 		item := create(t, s, tracker.NewItem{})
-		high := tracker.Select("high")
+		high := tracker.Select(OptionHigh)
 		if _, err := s.UpdateItem(ctx, item.ID, item.Version, tracker.Patch{
-			Fields: map[tracker.FieldKey]*tracker.Value{"severity": &high},
+			Fields: map[tracker.FieldID]*tracker.Value{FieldSeverity: &high},
 		}); err != nil {
 			t.Fatalf("UpdateItem: %v", err)
 		}
@@ -69,7 +69,7 @@ func runEvents(t *testing.T, newStore Factory) {
 		change := page.Rows[0].Changes[0]
 		was, _ := change.From.Select()
 		now, _ := change.To.Select()
-		if was != "medium" || now != "high" {
+		if was != OptionMedium || now != OptionHigh {
 			t.Errorf("change = %q -> %q, want medium -> high", was, now)
 		}
 	})
@@ -115,7 +115,7 @@ func runEvents(t *testing.T, newStore Factory) {
 	t.Run("resumes from a sequence", func(t *testing.T) {
 		s, ctx := fixture(t, newStore)
 		item := create(t, s, tracker.NewItem{})
-		if _, err := move(t, s, item, "doing"); err != nil {
+		if _, err := move(t, s, item, StatusDoing); err != nil {
 			t.Fatalf("move: %v", err)
 		}
 		all, err := s.Events(ctx, tracker.EventQuery{Item: &item.ID})

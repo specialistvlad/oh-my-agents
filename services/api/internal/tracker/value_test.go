@@ -25,7 +25,7 @@ func TestValueRoundTrips(t *testing.T) {
 	if d, ok := tracker.Duration(90 * time.Second).Duration(); !ok || d != 90*time.Second {
 		t.Errorf("Duration round trip = %v, %v", d, ok)
 	}
-	if o, ok := tracker.Select("high").Select(); !ok || o != "high" {
+	if o, ok := tracker.Select(optionHigh).Select(); !ok || o != optionHigh {
 		t.Errorf("Select round trip = %v, %v", o, ok)
 	}
 	if a, ok := tracker.Actor(agent("a1")).Actor(); !ok || a.ID != "a1" {
@@ -80,7 +80,7 @@ func TestZeroValueIsNotAnEmptyValue(t *testing.T) {
 }
 
 func TestMultiSelectCopiesBothWays(t *testing.T) {
-	in := []tracker.OptionKey{"a", "b"}
+	in := []tracker.OptionID{"a", "b"}
 	v := tracker.MultiSelect(in...)
 
 	in[0] = "mutated"
@@ -100,16 +100,16 @@ func TestMultiSelectCopiesBothWays(t *testing.T) {
 func TestRawCopiesSlicePayloads(t *testing.T) {
 	v := tracker.MultiSelect("a", "b")
 
-	raw, ok := v.Raw().([]tracker.OptionKey)
+	raw, ok := v.Raw().([]tracker.OptionID)
 	if !ok {
-		t.Fatalf("Raw() = %T, want []OptionKey", v.Raw())
+		t.Fatalf("Raw() = %T, want []OptionID", v.Raw())
 	}
 	raw[0] = "tampered"
 
 	if got, _ := v.MultiSelect(); got[0] != "a" {
 		t.Errorf("writing through Raw() reached the value: %v", got)
 	}
-	if again, _ := v.Raw().([]tracker.OptionKey); again[0] != "a" {
+	if again, _ := v.Raw().([]tracker.OptionID); again[0] != "a" {
 		t.Errorf("Raw() returned tampered data on a second call: %v", again)
 	}
 }

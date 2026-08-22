@@ -51,14 +51,14 @@ func runQueries(t *testing.T, newStore Factory) {
 
 	t.Run("filters by status and by field", func(t *testing.T) {
 		s, ctx := fixture(t, newStore)
-		create(t, s, tracker.NewItem{Fields: map[tracker.FieldKey]tracker.Value{
-			"summary": tracker.Text("x"), "severity": tracker.Select("high"),
+		create(t, s, tracker.NewItem{Fields: map[tracker.FieldID]tracker.Value{
+			FieldSummary: tracker.Text("x"), FieldSeverity: tracker.Select(OptionHigh),
 		}})
 		create(t, s, tracker.NewItem{})
 
 		high, err := s.FindItems(ctx, tracker.Query{
-			Statuses: []tracker.StatusKey{"open"},
-			Fields:   []tracker.FieldMatch{{Field: "severity", Equals: tracker.Select("high")}},
+			Statuses: []tracker.StatusID{StatusOpen},
+			Fields:   []tracker.FieldMatch{{Field: FieldSeverity, Equals: tracker.Select(OptionHigh)}},
 		})
 		if err != nil {
 			t.Fatalf("FindItems: %v", err)

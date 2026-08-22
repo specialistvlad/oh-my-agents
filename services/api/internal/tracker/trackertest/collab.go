@@ -76,11 +76,11 @@ func runComments(t *testing.T, newStore Factory) {
 		if err != nil {
 			t.Fatalf("AddComment: %v", err)
 		}
-		edited, err := s.EditComment(ctx, c.ID, c.Version, "fixed", human("moderator"))
+		edited, err := s.EditComment(ctx, c.ID, c.Version, "corrected", human("moderator"))
 		if err != nil {
 			t.Fatalf("EditComment: %v", err)
 		}
-		if edited.Body != "fixed" || edited.EditedAt == nil {
+		if edited.Body != "corrected" || edited.EditedAt == nil {
 			t.Errorf("EditComment = %+v, want the new body and an edit stamp", edited)
 		}
 		if _, err := s.EditComment(ctx, c.ID, c.Version, "again", human("moderator")); !errors.Is(err, tracker.ErrVersionConflict) {

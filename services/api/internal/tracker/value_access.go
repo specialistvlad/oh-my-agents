@@ -47,14 +47,14 @@ func (v Value) Duration() (time.Duration, bool) {
 }
 
 // Select returns the chosen option of a [KindSelect].
-func (v Value) Select() (OptionKey, bool) {
-	o, ok := v.raw.(OptionKey)
+func (v Value) Select() (OptionID, bool) {
+	o, ok := v.raw.(OptionID)
 	return o, ok && v.kind == KindSelect
 }
 
 // MultiSelect returns a copy of the chosen options of a [KindMultiSelect].
-func (v Value) MultiSelect() ([]OptionKey, bool) {
-	o, ok := v.raw.([]OptionKey)
+func (v Value) MultiSelect() ([]OptionID, bool) {
+	o, ok := v.raw.([]OptionID)
 	if !ok || v.kind != KindMultiSelect {
 		return nil, false
 	}
@@ -84,8 +84,8 @@ func (v Value) Equal(other Value) bool {
 	case "":
 		return true
 	case KindMultiSelect:
-		a, _ := v.raw.([]OptionKey)
-		b, _ := other.raw.([]OptionKey)
+		a, _ := v.raw.([]OptionID)
+		b, _ := other.raw.([]OptionID)
 		return slices.Equal(a, b)
 	case KindDate:
 		a, _ := v.raw.(time.Time)

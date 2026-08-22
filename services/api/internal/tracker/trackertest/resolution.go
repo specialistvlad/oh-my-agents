@@ -27,14 +27,14 @@ func runResolution(t *testing.T, newStore Factory) {
 		if err != nil {
 			t.Fatalf("Item: %v", err)
 		}
-		doing, err := move(t, s, parent, "doing")
+		doing, err := move(t, s, parent, StatusDoing)
 		if err != nil {
 			t.Fatalf("open -> doing: %v", err)
 		}
 		note := tracker.Markdown("done")
 		_, err = s.UpdateItem(ctx, doing.ID, doing.Version, tracker.Patch{
-			Status: statusPtr("fixed"),
-			Fields: map[tracker.FieldKey]*tracker.Value{"resolution": &note},
+			Status: statusPtr(StatusFixed),
+			Fields: map[tracker.FieldID]*tracker.Value{FieldResolution: &note},
 		})
 		if !errors.Is(err, tracker.ErrUnresolvedDescendants) {
 			t.Errorf("resolving over an open child = %v, want ErrUnresolvedDescendants", err)
@@ -55,14 +55,14 @@ func runResolution(t *testing.T, newStore Factory) {
 		}
 
 		root, _ = s.Item(ctx, root.ID)
-		doing, err := move(t, s, root, "doing")
+		doing, err := move(t, s, root, StatusDoing)
 		if err != nil {
 			t.Fatalf("open -> doing: %v", err)
 		}
 		note := tracker.Markdown("done")
 		_, err = s.UpdateItem(ctx, doing.ID, doing.Version, tracker.Patch{
-			Status: statusPtr("fixed"),
-			Fields: map[tracker.FieldKey]*tracker.Value{"resolution": &note},
+			Status: statusPtr(StatusFixed),
+			Fields: map[tracker.FieldID]*tracker.Value{FieldResolution: &note},
 		})
 		if !errors.Is(err, tracker.ErrUnresolvedDescendants) {
 			t.Errorf("resolving over a deep open item = %v, want ErrUnresolvedDescendants", err)
@@ -89,7 +89,7 @@ func runResolution(t *testing.T, newStore Factory) {
 		parent := create(t, s, tracker.NewItem{})
 		kid := child(t, s, parent.ID)
 
-		if _, err := move(t, s, kid, "dropped"); err != nil {
+		if _, err := move(t, s, kid, StatusDropped); err != nil {
 			t.Fatalf("open -> dropped: %v", err)
 		}
 		if n, err := s.UnresolvedDescendants(ctx, parent.ID); err != nil || n != 0 {
@@ -104,7 +104,7 @@ func runResolution(t *testing.T, newStore Factory) {
 		parent := create(t, s, tracker.NewItem{})
 		child(t, s, parent.ID)
 
-		_, err := move(t, s, parent, "dropped")
+		_, err := move(t, s, parent, StatusDropped)
 		if !errors.Is(err, tracker.ErrUnresolvedDescendants) {
 			t.Errorf("canceling over an open child = %v, want ErrUnresolvedDescendants", err)
 		}
@@ -117,9 +117,9 @@ func runResolution(t *testing.T, newStore Factory) {
 		parent := resolve(t, s, create(t, s, tracker.NewItem{}))
 
 		_, err := s.CreateItem(ctx, tracker.NewItem{
-			Type:   "bug",
+			Type:   TypeBug,
 			Parent: idPtr(parent.ID),
-			Fields: map[tracker.FieldKey]tracker.Value{"summary": tracker.Text("late")},
+			Fields: map[tracker.FieldID]tracker.Value{FieldSummary: tracker.Text("late")},
 		})
 		if !errors.Is(err, tracker.ErrResolvedParent) {
 			t.Errorf("CreateItem under a resolved parent = %v, want ErrResolvedParent", err)
@@ -148,7 +148,7 @@ func runResolution(t *testing.T, newStore Factory) {
 		parent, _ = s.Item(ctx, parent.ID)
 		resolve(t, s, parent)
 
-		_, err := s.UpdateItem(ctx, kid.ID, kid.Version, tracker.Patch{Status: statusPtr("open")})
+		_, err := s.UpdateItem(ctx, kid.ID, kid.Version, tracker.Patch{Status: statusPtr(StatusOpen)})
 		if !errors.Is(err, tracker.ErrResolvedParent) {
 			t.Errorf("reopening under a resolved parent = %v, want ErrResolvedParent", err)
 		}

@@ -11,7 +11,7 @@ func (s Schema) ValidateItem(item Item) error {
 		return fmt.Errorf("%w: %q", ErrUnknownType, item.Type)
 	}
 	if _, ok := t.Status(item.Status); !ok {
-		return fmt.Errorf("%w: type %q has no status %q", ErrUnknownStatus, t.Key, item.Status)
+		return fmt.Errorf("%w: type %q has no status %q", ErrUnknownStatus, t.ID, item.Status)
 	}
 	if err := s.validateFields(t, item.Fields); err != nil {
 		return err
@@ -60,13 +60,13 @@ func (s Schema) ValidatePatch(current Item, p Patch) error {
 // is always enforced: a move the type does not declare is refused, and a
 // transition's required fields must hold values in the item as it will be
 // after the edit, not as it was before.
-func (s Schema) ValidateTransition(t ItemType, from, to StatusKey, after Item) error {
+func (s Schema) ValidateTransition(t ItemType, from, to StatusID, after Item) error {
 	if _, ok := t.Status(to); !ok {
-		return fmt.Errorf("%w: type %q has no status %q", ErrUnknownStatus, t.Key, to)
+		return fmt.Errorf("%w: type %q has no status %q", ErrUnknownStatus, t.ID, to)
 	}
 	tr, ok := t.Transition(from, to)
 	if !ok {
-		return fmt.Errorf("%w: type %q does not allow %s -> %s", ErrTransitionNotAllowed, t.Key, from, to)
+		return fmt.Errorf("%w: type %q does not allow %s -> %s", ErrTransitionNotAllowed, t.ID, from, to)
 	}
 	for _, key := range tr.RequiredFields {
 		if v, held := after.Fields[key]; !held || v.IsZero() {
@@ -78,11 +78,11 @@ func (s Schema) ValidateTransition(t ItemType, from, to StatusKey, after Item) e
 
 // validateFields checks that every key is declared by the type and every
 // value fits the field it is being written to.
-func (s Schema) validateFields(t ItemType, fields map[FieldKey]Value) error {
+func (s Schema) validateFields(t ItemType, fields map[FieldID]Value) error {
 	for key, v := range fields {
 		f, ok := t.Field(key)
 		if !ok {
-			return fmt.Errorf("%w: type %q has no field %q", ErrUnknownField, t.Key, key)
+			return fmt.Errorf("%w: type %q has no field %q", ErrUnknownField, t.ID, key)
 		}
 		if err := f.Accepts(v); err != nil {
 			return err
@@ -96,14 +96,14 @@ func (s Schema) validateFields(t ItemType, fields map[FieldKey]Value) error {
 // point. It does not touch the store and does not check the tree.
 func (s Schema) apply(t ItemType, current Item, p Patch) (Item, error) {
 	after := current
-	after.Fields = make(map[FieldKey]Value, len(current.Fields))
+	after.Fields = make(map[FieldID]Value, len(current.Fields))
 	for k, v := range current.Fields {
 		after.Fields[k] = v
 	}
 	for key, v := range p.Fields {
 		f, ok := t.Field(key)
 		if !ok {
-			return Item{}, fmt.Errorf("%w: type %q has no field %q", ErrUnknownField, t.Key, key)
+			return Item{}, fmt.Errorf("%w: type %q has no field %q", ErrUnknownField, t.ID, key)
 		}
 		if v == nil {
 			delete(after.Fields, key)
@@ -122,28 +122,28 @@ func (s Schema) apply(t ItemType, current Item, p Patch) (Item, error) {
 
 // ApplyDefaults returns the fields a new item would carry: whatever the
 // caller supplied, plus a default for every declared field it left out.
-func (t ItemType) ApplyDefaults(fields map[FieldKey]Value) map[FieldKey]Value {
-	out := make(map[FieldKey]Value, len(fields)+len(t.Fields))
+func (t ItemType) ApplyDefaults(fields map[FieldID]Value) map[FieldID]Value {
+	out := make(map[FieldID]Value, len(fields)+len(t.Fields))
 	for k, v := range fields {
 		out[k] = v
 	}
 	for _, f := range t.Fields {
-		if _, held := out[f.Key]; held || f.Default == nil {
+		if _, held := out[f.ID]; held || f.Default == nil {
 			continue
 		}
-		out[f.Key] = *f.Default
+		out[f.ID] = *f.Default
 	}
 	return out
 }
 
 // requireAll checks every required field holds a value.
-func requireAll(t ItemType, fields map[FieldKey]Value) error {
+func requireAll(t ItemType, fields map[FieldID]Value) error {
 	for _, f := range t.Fields {
 		if !f.Required {
 			continue
 		}
-		if v, held := fields[f.Key]; !held || v.IsZero() {
-			return fmt.Errorf("%w: type %q needs field %q", ErrFieldRequired, t.Key, f.Key)
+		if v, held := fields[f.ID]; !held || v.IsZero() {
+			return fmt.Errorf("%w: type %q needs field %q", ErrFieldRequired, t.ID, f.ID)
 		}
 	}
 	return nil

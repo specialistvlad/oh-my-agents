@@ -1,5 +1,11 @@
 package tracker
 
+import (
+	"fmt"
+	"regexp"
+	"strings"
+)
+
 // Identifiers are distinct string types rather than bare strings so that a
 // status key can never be passed where a field key belongs. They carry no
 // format requirement: an adapter mints whatever its storage prefers.
@@ -12,19 +18,74 @@ type (
 	EventID string
 )
 
-// Keys name things the schema defines. They are stable across renames: a
-// status may be relabelled "In Review" without its key changing, so stored
-// items and orchestration logic keep working.
+// Schema identifiers. Each is minted by the system, permanent, and carries a
+// readable stem taken from the name at creation plus a suffix that makes it
+// unique (ADR-0009).
+//
+// The stem is frozen and will go stale: rename a type from "Bug" to "Defect"
+// and its id keeps the old word. That is the point — a stem that followed the
+// name would be a name, and addressing by it is what these exist to prevent.
+// Nothing may parse an id or infer anything from one.
 type (
-	// TypeKey names an [ItemType], e.g. "epic" or "bug".
-	TypeKey string
-	// FieldKey names a [FieldDef] within a type.
-	FieldKey string
-	// StatusKey names a [Status] within a type.
-	StatusKey string
-	// OptionKey names one choice of a select field.
-	OptionKey string
+	// TypeID addresses an [ItemType].
+	TypeID string
+	// FieldID addresses a [FieldDef] within a type.
+	FieldID string
+	// StatusID addresses a [Status] within a type.
+	StatusID string
+	// OptionID addresses one choice of a select field.
+	OptionID string
 )
+
+// minted is the shape every schema identifier takes: a readable stem, a
+// hyphen, and a suffix. Deliberately narrow, so an id is always safe as both
+// a path segment and a URL segment.
+var minted = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// maxIDLen keeps an id inside the path limits of any filesystem it lands on.
+const maxIDLen = 128
+
+// Mint builds an identifier from a name and a nonce.
+//
+// A name with nothing usable in it — punctuation, or a script this reduction
+// does not handle — still gets an id, because the nonce alone addresses it
+// and refusing the name would be worse.
+func Mint(name, nonce string) string {
+	stem := stemOf(name)
+	if stem == "" {
+		return "x-" + nonce
+	}
+	return stem + "-" + nonce
+}
+
+// maxStemLen bounds the readable half, so a long name still yields a
+// manageable id.
+const maxStemLen = 40
+
+var notStem = regexp.MustCompile(`[^a-z0-9]+`)
+
+func stemOf(name string) string {
+	stem := notStem.ReplaceAllString(strings.ToLower(name), "-")
+	stem = strings.Trim(stem, "-")
+	if len(stem) > maxStemLen {
+		stem = strings.Trim(stem[:maxStemLen], "-")
+	}
+	return stem
+}
+
+// validID reports whether an identifier could be one this system minted.
+func validID(kind, id string) error {
+	switch {
+	case id == "":
+		return fmt.Errorf("%w: empty %s id", ErrInvalidSchema, kind)
+	case len(id) > maxIDLen:
+		return fmt.Errorf("%w: %s id longer than %d bytes", ErrInvalidSchema, kind, maxIDLen)
+	case !minted.MatchString(id):
+		return fmt.Errorf("%w: %s id %q is not one this system mints", ErrInvalidSchema, kind, id)
+	default:
+		return nil
+	}
+}
 
 // ActorKind distinguishes who acted. Agents are first-class: every place an
 // actor appears accepts one, and nothing in the model treats agent activity

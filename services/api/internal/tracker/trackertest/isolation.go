@@ -19,14 +19,14 @@ func runIsolation(t *testing.T, newStore Factory) {
 		if err != nil {
 			t.Fatalf("Item: %v", err)
 		}
-		got.Fields["summary"] = tracker.Text("tampered")
+		got.Fields[FieldSummary] = tracker.Text("tampered")
 		got.Fields["injected"] = tracker.Text("nope")
 
 		again, err := s.Item(ctx, item.ID)
 		if err != nil {
 			t.Fatalf("Item: %v", err)
 		}
-		if summary, _ := again.Fields["summary"].String(); summary == "tampered" {
+		if summary, _ := again.Fields[FieldSummary].String(); summary == "tampered" {
 			t.Error("mutating a returned item reached the store")
 		}
 		if _, injected := again.Fields["injected"]; injected {
@@ -36,18 +36,18 @@ func runIsolation(t *testing.T, newStore Factory) {
 
 	t.Run("does not keep the caller's map", func(t *testing.T) {
 		s, ctx := fixture(t, newStore)
-		fields := map[tracker.FieldKey]tracker.Value{"summary": tracker.Text("original")}
-		item, err := s.CreateItem(ctx, tracker.NewItem{Type: "bug", Fields: fields})
+		fields := map[tracker.FieldID]tracker.Value{FieldSummary: tracker.Text("original")}
+		item, err := s.CreateItem(ctx, tracker.NewItem{Type: TypeBug, Fields: fields})
 		if err != nil {
 			t.Fatalf("CreateItem: %v", err)
 		}
-		fields["summary"] = tracker.Text("mutated after the write")
+		fields[FieldSummary] = tracker.Text("mutated after the write")
 
 		got, err := s.Item(ctx, item.ID)
 		if err != nil {
 			t.Fatalf("Item: %v", err)
 		}
-		if summary, _ := got.Fields["summary"].String(); summary != "original" {
+		if summary, _ := got.Fields[FieldSummary].String(); summary != "original" {
 			t.Errorf("summary = %q; the store kept the caller's map", summary)
 		}
 	})
@@ -58,7 +58,7 @@ func runIsolation(t *testing.T, newStore Factory) {
 		if err != nil {
 			t.Fatalf("Schema: %v", err)
 		}
-		typ, ok := schema.Type("bug")
+		typ, ok := schema.Type(TypeBug)
 		if !ok || len(typ.Fields) == 0 || len(typ.Statuses) == 0 {
 			t.Fatalf("Schema returned an empty type: %+v", typ)
 		}
@@ -69,7 +69,7 @@ func runIsolation(t *testing.T, newStore Factory) {
 		if err != nil {
 			t.Fatalf("Schema: %v", err)
 		}
-		fresh, _ := again.Type("bug")
+		fresh, _ := again.Type(TypeBug)
 		if fresh.Fields[0].Name == "tampered" || fresh.Statuses[0].Name == "tampered" {
 			t.Error("mutating a returned schema reached the store")
 		}
@@ -115,7 +115,7 @@ func runIsolation(t *testing.T, newStore Factory) {
 	t.Run("does not alias event changes", func(t *testing.T) {
 		s, ctx := fixture(t, newStore)
 		item := create(t, s, tracker.NewItem{})
-		if _, err := move(t, s, item, "doing"); err != nil {
+		if _, err := move(t, s, item, StatusDoing); err != nil {
 			t.Fatalf("move: %v", err)
 		}
 		page, err := s.Events(ctx, tracker.EventQuery{
@@ -135,7 +135,7 @@ func runIsolation(t *testing.T, newStore Factory) {
 		if err != nil {
 			t.Fatalf("Events: %v", err)
 		}
-		if to, _ := again.Rows[0].Changes[0].To.String(); to != "doing" {
+		if to, _ := again.Rows[0].Changes[0].To.String(); to != string(StatusDoing) {
 			t.Errorf("recorded history was rewritten through a returned event: %q", to)
 		}
 	})

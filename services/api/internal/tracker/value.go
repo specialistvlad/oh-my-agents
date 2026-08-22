@@ -43,12 +43,12 @@ func Date(t time.Time) Value { return Value{kind: KindDate, raw: t.UTC()} }
 func Duration(d time.Duration) Value { return Value{kind: KindDuration, raw: d} }
 
 // Select returns a [KindSelect] value.
-func Select(o OptionKey) Value { return Value{kind: KindSelect, raw: o} }
+func Select(o OptionID) Value { return Value{kind: KindSelect, raw: o} }
 
 // MultiSelect returns a [KindMultiSelect] value. The options are copied, so a
 // caller reusing its slice cannot reach inside the value afterwards.
-func MultiSelect(options ...OptionKey) Value {
-	out := make([]OptionKey, len(options))
+func MultiSelect(options ...OptionID) Value {
+	out := make([]OptionID, len(options))
 	copy(out, options)
 	return Value{kind: KindMultiSelect, raw: out}
 }
@@ -71,15 +71,15 @@ func (v Value) IsZero() bool { return v.kind == "" }
 // accessors, which cannot silently return the wrong shape.
 //
 // The mapping is fixed: string for text, markdown and URL; float64 for
-// number; bool; [time.Time] for date; [time.Duration]; [OptionKey] for
-// select; []OptionKey for multi-select; [ActorRef]; [ItemID] for an item
+// number; bool; [time.Time] for date; [time.Duration]; [OptionID] for
+// select; []OptionID for multi-select; [ActorRef]; [ItemID] for an item
 // reference.
 //
 // Slice payloads are copied, so writing through the result cannot reach the
 // value. A Value is immutable once built and this is the only door that could
 // have made it otherwise.
 func (v Value) Raw() any {
-	if options, ok := v.raw.([]OptionKey); ok {
+	if options, ok := v.raw.([]OptionID); ok {
 		return slices.Clone(options)
 	}
 	return v.raw

@@ -5,20 +5,23 @@ import "fmt"
 // Validate checks the field definition is internally consistent: a known
 // kind, options exactly where options belong, and a default that fits.
 func (f FieldDef) Validate() error {
-	if f.Key == "" || f.Name == "" {
-		return fmt.Errorf("%w: field %q needs a key and a name", ErrInvalidSchema, f.Key)
+	if reserved(f.ID) {
+		return fmt.Errorf("%w: field %q uses the reserved @ prefix", ErrReservedKey, f.ID)
 	}
-	if reserved(f.Key) {
-		return fmt.Errorf("%w: field %q uses the reserved @ prefix", ErrReservedKey, f.Key)
+	if err := validID("field", string(f.ID)); err != nil {
+		return err
+	}
+	if f.Name == "" {
+		return fmt.Errorf("%w: field %q needs a name", ErrInvalidSchema, f.ID)
 	}
 	if !f.Kind.valid() {
-		return fmt.Errorf("%w: field %q has unknown kind %q", ErrInvalidSchema, f.Key, f.Kind)
+		return fmt.Errorf("%w: field %q has unknown kind %q", ErrInvalidSchema, f.ID, f.Kind)
 	}
 	if err := f.validateOptions(); err != nil {
 		return err
 	}
 	if f.Kind != KindItem && len(f.ItemTypes) > 0 {
-		return fmt.Errorf("%w: field %q restricts item types but is not an item reference", ErrInvalidSchema, f.Key)
+		return fmt.Errorf("%w: field %q restricts item types but is not an item reference", ErrInvalidSchema, f.ID)
 	}
 	return f.validateDefault()
 }
@@ -29,19 +32,19 @@ func (f FieldDef) validateOptions() error {
 	selects := f.Kind == KindSelect || f.Kind == KindMultiSelect
 	switch {
 	case selects && len(f.Options) == 0:
-		return fmt.Errorf("%w: field %q is a select with no options", ErrInvalidSchema, f.Key)
+		return fmt.Errorf("%w: field %q is a select with no options", ErrInvalidSchema, f.ID)
 	case !selects && len(f.Options) > 0:
-		return fmt.Errorf("%w: field %q declares options but is a %s", ErrInvalidSchema, f.Key, f.Kind)
+		return fmt.Errorf("%w: field %q declares options but is a %s", ErrInvalidSchema, f.ID, f.Kind)
 	}
-	seen := make(map[OptionKey]struct{}, len(f.Options))
+	seen := make(map[OptionID]struct{}, len(f.Options))
 	for _, o := range f.Options {
 		if err := o.Validate(); err != nil {
-			return fmt.Errorf("field %q: %w", f.Key, err)
+			return fmt.Errorf("field %q: %w", f.ID, err)
 		}
-		if _, dup := seen[o.Key]; dup {
-			return fmt.Errorf("%w: field %q declares option %q twice", ErrInvalidSchema, f.Key, o.Key)
+		if _, dup := seen[o.ID]; dup {
+			return fmt.Errorf("%w: field %q declares option %q twice", ErrInvalidSchema, f.ID, o.ID)
 		}
-		seen[o.Key] = struct{}{}
+		seen[o.ID] = struct{}{}
 	}
 	return nil
 }
@@ -64,7 +67,7 @@ func (f FieldDef) Accepts(v Value) error {
 		return nil
 	}
 	if v.Kind() != f.Kind {
-		return fmt.Errorf("%w: field %q is a %s, got a %s", ErrKindMismatch, f.Key, f.Kind, v.Kind())
+		return fmt.Errorf("%w: field %q is a %s, got a %s", ErrKindMismatch, f.ID, f.Kind, v.Kind())
 	}
 	switch f.Kind {
 	case KindSelect:
@@ -83,13 +86,13 @@ func (f FieldDef) Accepts(v Value) error {
 	}
 }
 
-func (f FieldDef) acceptsOption(o OptionKey) error {
+func (f FieldDef) acceptsOption(o OptionID) error {
 	for _, declared := range f.Options {
-		if declared.Key == o {
+		if declared.ID == o {
 			return nil
 		}
 	}
-	return fmt.Errorf("%w: field %q has no option %q", ErrUnknownOption, f.Key, o)
+	return fmt.Errorf("%w: field %q has no option %q", ErrUnknownOption, f.ID, o)
 }
 
 func (k FieldKind) valid() bool {
@@ -104,8 +107,11 @@ func (k FieldKind) valid() bool {
 
 // Validate checks the option is nameable and addressable.
 func (o Option) Validate() error {
-	if o.Key == "" || o.Name == "" {
-		return fmt.Errorf("%w: option %q needs a key and a name", ErrInvalidSchema, o.Key)
+	if err := validID("option", string(o.ID)); err != nil {
+		return err
+	}
+	if o.Name == "" {
+		return fmt.Errorf("%w: option %q needs a name", ErrInvalidSchema, o.ID)
 	}
 	return nil
 }

@@ -56,7 +56,7 @@ func runWorkflow(t *testing.T, newStore Factory) {
 	t.Run("allows a declared transition", func(t *testing.T) {
 		s, _ := fixture(t, newStore)
 		item := create(t, s, tracker.NewItem{})
-		if _, err := move(t, s, item, "doing"); err != nil {
+		if _, err := move(t, s, item, StatusDoing); err != nil {
 			t.Errorf("open -> doing: %v", err)
 		}
 	})
@@ -64,7 +64,7 @@ func runWorkflow(t *testing.T, newStore Factory) {
 	t.Run("refuses an undeclared transition", func(t *testing.T) {
 		s, _ := fixture(t, newStore)
 		item := create(t, s, tracker.NewItem{})
-		_, err := move(t, s, item, "fixed") // only reachable via doing
+		_, err := move(t, s, item, StatusFixed) // only reachable via doing
 		if !errors.Is(err, tracker.ErrTransitionNotAllowed) {
 			t.Errorf("open -> fixed = %v, want ErrTransitionNotAllowed", err)
 		}
@@ -81,11 +81,11 @@ func runWorkflow(t *testing.T, newStore Factory) {
 	t.Run("enforces a transition's required fields", func(t *testing.T) {
 		s, ctx := fixture(t, newStore)
 		item := create(t, s, tracker.NewItem{})
-		doing, err := move(t, s, item, "doing")
+		doing, err := move(t, s, item, StatusDoing)
 		if err != nil {
 			t.Fatalf("open -> doing: %v", err)
 		}
-		if _, err := move(t, s, doing, "fixed"); !errors.Is(err, tracker.ErrFieldRequired) {
+		if _, err := move(t, s, doing, StatusFixed); !errors.Is(err, tracker.ErrFieldRequired) {
 			t.Errorf("doing -> fixed without a resolution = %v, want ErrFieldRequired", err)
 		}
 
@@ -93,8 +93,8 @@ func runWorkflow(t *testing.T, newStore Factory) {
 		// requirement is judged against the outcome.
 		note := tracker.Markdown("fixed it")
 		_, err = s.UpdateItem(ctx, doing.ID, doing.Version, tracker.Patch{
-			Status: statusPtr("fixed"),
-			Fields: map[tracker.FieldKey]*tracker.Value{"resolution": &note},
+			Status: statusPtr(StatusFixed),
+			Fields: map[tracker.FieldID]*tracker.Value{FieldResolution: &note},
 		})
 		if err != nil {
 			t.Errorf("setting the resolution and moving together: %v", err)
@@ -136,9 +136,9 @@ func runHierarchy(t *testing.T, newStore Factory) {
 	t.Run("refuses a missing parent", func(t *testing.T) {
 		s, ctx := fixture(t, newStore)
 		_, err := s.CreateItem(ctx, tracker.NewItem{
-			Type:   "bug",
+			Type:   TypeBug,
 			Parent: idPtr("ghost"),
-			Fields: map[tracker.FieldKey]tracker.Value{"summary": tracker.Text("x")},
+			Fields: map[tracker.FieldID]tracker.Value{FieldSummary: tracker.Text("x")},
 		})
 		if !errors.Is(err, tracker.ErrNotFound) {
 			t.Errorf("CreateItem under a missing parent = %v, want ErrNotFound", err)

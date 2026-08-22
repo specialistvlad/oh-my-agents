@@ -170,7 +170,7 @@ func clone(item tracker.Item) tracker.Item {
 	out := item
 	out.Fields = maps.Clone(item.Fields)
 	if out.Fields == nil {
-		out.Fields = make(map[tracker.FieldKey]tracker.Value)
+		out.Fields = make(map[tracker.FieldID]tracker.Value)
 	}
 	if item.Parent != nil {
 		parent := *item.Parent

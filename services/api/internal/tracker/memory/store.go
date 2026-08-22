@@ -79,19 +79,19 @@ func (s *Store) PutItemType(ctx context.Context, t tracker.ItemType) error {
 
 	next := tracker.Schema{Types: make([]tracker.ItemType, 0, len(s.schema.Types)+1)}
 	for _, existing := range s.schema.Types {
-		if existing.Key != t.Key {
+		if existing.ID != t.ID {
 			next.Types = append(next.Types, existing)
 		}
 	}
 	next.Types = append(next.Types, cloneType(t))
 
 	for _, item := range s.items {
-		if item.Type != t.Key {
+		if item.Type != t.ID {
 			continue
 		}
 		if err := next.ValidateItem(item); err != nil {
 			return fmt.Errorf("%w: %q would invalidate item %q: %w",
-				tracker.ErrInvalidSchema, t.Key, item.ID, err)
+				tracker.ErrInvalidSchema, t.ID, item.ID, err)
 		}
 	}
 	s.schema = next
@@ -100,7 +100,7 @@ func (s *Store) PutItemType(ctx context.Context, t tracker.ItemType) error {
 
 // DeleteItemType implements [tracker.SchemaWriter]. A type still in use
 // cannot be removed, for the same reason.
-func (s *Store) DeleteItemType(ctx context.Context, key tracker.TypeKey) error {
+func (s *Store) DeleteItemType(ctx context.Context, key tracker.TypeID) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func (s *Store) DeleteItemType(ctx context.Context, key tracker.TypeKey) error {
 	}
 	kept := make([]tracker.ItemType, 0, len(s.schema.Types))
 	for _, t := range s.schema.Types {
-		if t.Key != key {
+		if t.ID != key {
 			kept = append(kept, t)
 		}
 	}

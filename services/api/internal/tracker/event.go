@@ -62,7 +62,7 @@ const (
 // rather than a kind of its own because a status key is only meaningful
 // against a type, and an event is read without one.
 type Change struct {
-	Field FieldKey
+	Field FieldID
 	From  *Value
 	To    *Value
 }

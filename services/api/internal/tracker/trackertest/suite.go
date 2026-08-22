@@ -52,10 +52,10 @@ func fixture(t *testing.T, newStore Factory) (tracker.Store, context.Context) {
 func create(t *testing.T, s tracker.Store, n tracker.NewItem) tracker.Item {
 	t.Helper()
 	if n.Type == "" {
-		n.Type = "bug"
+		n.Type = TypeBug
 	}
 	if n.Fields == nil {
-		n.Fields = map[tracker.FieldKey]tracker.Value{"summary": tracker.Text("x")}
+		n.Fields = map[tracker.FieldID]tracker.Value{FieldSummary: tracker.Text("x")}
 	}
 	item, err := s.CreateItem(t.Context(), n)
 	if err != nil {
@@ -71,7 +71,7 @@ func child(t *testing.T, s tracker.Store, parent tracker.ItemID) tracker.Item {
 }
 
 // move transitions an item and returns the result.
-func move(t *testing.T, s tracker.Store, item tracker.Item, to tracker.StatusKey) (tracker.Item, error) {
+func move(t *testing.T, s tracker.Store, item tracker.Item, to tracker.StatusID) (tracker.Item, error) {
 	t.Helper()
 	return s.UpdateItem(t.Context(), item.ID, item.Version, tracker.Patch{Status: &to})
 }
@@ -79,14 +79,14 @@ func move(t *testing.T, s tracker.Store, item tracker.Item, to tracker.StatusKey
 // resolve walks an item all the way to fixed, which needs a resolution.
 func resolve(t *testing.T, s tracker.Store, item tracker.Item) tracker.Item {
 	t.Helper()
-	doing, err := move(t, s, item, "doing")
+	doing, err := move(t, s, item, StatusDoing)
 	if err != nil {
 		t.Fatalf("open -> doing: %v", err)
 	}
 	note := tracker.Markdown("done")
 	fixed, err := s.UpdateItem(t.Context(), doing.ID, doing.Version, tracker.Patch{
-		Status: statusPtr("fixed"),
-		Fields: map[tracker.FieldKey]*tracker.Value{"resolution": &note},
+		Status: statusPtr(StatusFixed),
+		Fields: map[tracker.FieldID]*tracker.Value{FieldResolution: &note},
 	})
 	if err != nil {
 		t.Fatalf("doing -> fixed: %v", err)
@@ -94,6 +94,6 @@ func resolve(t *testing.T, s tracker.Store, item tracker.Item) tracker.Item {
 	return fixed
 }
 
-func statusPtr(k tracker.StatusKey) *tracker.StatusKey { return &k }
+func statusPtr(k tracker.StatusID) *tracker.StatusID { return &k }
 
 func idPtr(id tracker.ItemID) *tracker.ItemID { return &id }
