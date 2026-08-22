@@ -45,9 +45,13 @@ type Options struct {
 	PingEvery   time.Duration
 	PingTimeout time.Duration
 
-	// Settings is the write surface exposed over the socket. Nil serves a
-	// read-only socket, which is what a process with nothing to write does.
+	// Settings is the settings write surface. Nil serves a socket that
+	// accepts no settings writes.
 	Settings Settings
+
+	// Projects is the project lifecycle. Nil serves a socket that accepts
+	// no project changes.
+	Projects Projects
 
 	// Replays remembers commands so a reconnecting client can safely send
 	// again what it never saw acknowledged. Nil gets a default.
@@ -185,6 +189,8 @@ func handle(ctx context.Context, in Inbound, conn *realtime.Conn, opts Options) 
 		return Outbound{Type: KindPong, ID: in.ID}
 	case KindSet, KindDelete:
 		return mutate(ctx, in, opts.Settings, opts.Replays)
+	case KindProjectCreate, KindProjectRename, KindProjectRepoint, KindProjectRemove:
+		return mutateProject(ctx, in, opts.Projects, opts.Replays)
 	default:
 		return Outbound{Type: KindError, ID: in.ID, Error: "unknown frame type " + in.Type}
 	}

@@ -5,11 +5,15 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/bus"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/config"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/httpserver"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/projects"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/projectsbus"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/projectshttp"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/realtime"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/realtimews"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settings"
@@ -50,6 +54,19 @@ func run() int {
 	// arrived — over HTTP or over the socket.
 	store := settingsbus.New(files, messages)
 
+	// The registry is a settings store in the shared scope: a project
+	// record is a JSON document addressed by an id, which is what settings
+	// already is (ADR-0010).
+	shared, err := settings.NewFS(filepath.Join(files.Dir(), "shared"))
+	if err != nil {
+		slog.Error("cannot open the shared scope", "err", err)
+		return 1
+	}
+	registry := projectsbus.New(projects.NewRegistry(projects.Deps{
+		Records:   shared,
+		Workspace: files.Dir(),
+	}), messages)
+
 	hub := realtime.New()
 	ctx, stopHub := context.WithCancel(context.Background())
 	defer stopHub()
@@ -72,9 +89,11 @@ func run() int {
 		Timeouts:    app.Server.HTTP,
 		Mounts: []httpserver.Mount{
 			{Prefix: "/settings/", Handler: settingshttp.New(store)},
+			{Prefix: "/projects/", Handler: projectshttp.New(registry)},
 			{Prefix: "/ws", Handler: realtimews.New(hub, realtimews.Options{
 				Origins:  app.AllowedOrigins,
 				Settings: store,
+				Projects: registry,
 			})},
 		},
 	})

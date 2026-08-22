@@ -120,27 +120,6 @@ func realtimeServer(t *testing.T) (string, *bus.Memory) {
 	return "http://" + srv.Addr, messages
 }
 
-// listen dials the socket and joins one room, returning once the join is
-// acknowledged so no publish can race it.
-func listen(t *testing.T, base, room string) *websocket.Conn {
-	t.Helper()
-	sock, resp, err := websocket.Dial(t.Context(), "ws"+base[len("http"):]+"/ws", nil)
-	if err != nil {
-		t.Fatalf("Dial: %v", err)
-	}
-	closeBody(resp)
-	t.Cleanup(func() { _ = sock.CloseNow() })
-
-	if frame := readFrame(t, sock); frame.Type != realtimews.KindWelcome {
-		t.Fatalf("first frame = %+v, want welcome", frame)
-	}
-	writeFrame(t, sock, realtimews.Inbound{Type: realtimews.KindJoin, ID: "join", Room: room})
-	if frame := readFrame(t, sock); frame.Type != realtimews.KindAck {
-		t.Fatalf("join reply = %+v, want an ack", frame)
-	}
-	return sock
-}
-
 // closeBody releases the handshake response websocket.Dial returns.
 func closeBody(resp *http.Response) {
 	if resp != nil && resp.Body != nil {

@@ -13,7 +13,28 @@ export type Inbound =
       value: unknown;
       idempotency: string;
     }
-  | { type: 'delete'; id: string; key: string; idempotency: string };
+  | { type: 'delete'; id: string; key: string; idempotency: string }
+  | { type: 'project.create'; id: string; name: string; idempotency: string }
+  | {
+      type: 'project.rename';
+      id: string;
+      project: string;
+      name: string;
+      idempotency: string;
+    }
+  | {
+      type: 'project.repoint';
+      id: string;
+      project: string;
+      root: string;
+      idempotency: string;
+    }
+  | {
+      type: 'project.remove';
+      id: string;
+      project: string;
+      idempotency: string;
+    };
 
 export type Outbound = {
   type: 'welcome' | 'ack' | 'error' | 'event' | 'resync' | 'pong';

@@ -1,73 +1,100 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Trash2, Zap } from 'lucide-react';
 
+import { ConfirmRemove } from '@/components/ConfirmRemove';
 import { ConnectionBadge } from '@/components/ConnectionBadge';
+import { CreateProject } from '@/components/CreateProject';
 import { EventList } from '@/components/EventList';
-import { KeyList } from '@/components/KeyList';
-import { Button } from '@/components/ui/button';
+import { ProjectList } from '@/components/ProjectList';
+import { RenameProject } from '@/components/RenameProject';
 import { Separator } from '@/components/ui/separator';
 import { configuration } from '@/core/configuration';
+import { useProjectWriter } from '@/hooks/useProjectWriter';
+import { useProjects } from '@/hooks/useProjects';
+import { useProjectsPage } from '@/hooks/useProjectsPage';
 import { useRealtime } from '@/hooks/useRealtime';
-import { useRealtimeWriter } from '@/hooks/useRealtimeWriter';
-import { useSettingsKeys } from '@/hooks/useSettingsKeys';
+import { PROJECTS_ROOM } from '@/projects/types';
 
 export const Route = createFileRoute('/')({ component: Index });
 
-const ROOMS = ['settings'];
+const ROOMS = [PROJECTS_ROOM];
 
 function Index() {
   const { client, status, events, generation } = useRealtime(
     configuration.apiUrl,
     ROOMS
   );
-  const { keys, error: keysError } = useSettingsKeys(
-    configuration.apiUrl,
-    generation
-  );
-  const { write, remove, busy, error } = useRealtimeWriter(client);
+  const {
+    projects,
+    error: listError,
+    loaded,
+  } = useProjects(configuration.apiUrl, generation, events);
+  const {
+    create,
+    rename,
+    remove,
+    busy,
+    error: writeError,
+  } = useProjectWriter(client);
+  const page = useProjectsPage();
+
+  const error = writeError ?? listError;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <div className="mb-1 flex items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">oh-my-agents</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
         <ConnectionBadge status={status} />
       </div>
       <p className="mb-6 text-sm text-muted-foreground">
-        One socket carries writes out and events back. State is fetched once
-        when the rooms are joined; after that nothing on this page polls or
-        refetches.
+        Changes go out over one socket and come back to every open tab. The list
+        is fetched once on connect; after that nothing here polls.
       </p>
 
-      <div className="mb-6 flex flex-wrap gap-3">
-        <Button
-          disabled={busy}
-          onClick={() =>
-            write('demo/clicked', { at: new Date().toISOString() })
-          }>
-          <Zap className="size-4" aria-hidden />
-          Write a setting
-        </Button>
-        <Button
-          variant="outline"
-          disabled={busy}
-          onClick={() => write('demo/counter', { n: events.length })}>
-          Write another
-        </Button>
-        <Button
-          variant="ghost"
-          disabled={busy}
-          onClick={() => remove('demo/clicked')}>
-          <Trash2 className="size-4" aria-hidden />
-          Delete one
-        </Button>
-      </div>
+      <CreateProject
+        value={page.draft}
+        busy={busy}
+        onChange={page.setDraft}
+        onSubmit={() => {
+          void create(page.draft).then(() => page.setDraft(''));
+        }}
+      />
+
+      {page.editing ? (
+        <RenameProject
+          project={page.editing}
+          value={page.editName}
+          busy={busy}
+          onChange={page.setEditName}
+          onSubmit={() => {
+            const target = page.editing;
+            if (target)
+              void rename(target.id, page.editName).then(page.cancelRename);
+          }}
+          onCancel={page.cancelRename}
+        />
+      ) : null}
+
+      {page.confirming ? (
+        <ConfirmRemove
+          project={page.confirming}
+          busy={busy}
+          onConfirm={() => {
+            const target = page.confirming;
+            if (target) void remove(target.id).then(page.cancelRemove);
+          }}
+          onCancel={page.cancelRemove}
+        />
+      ) : null}
+
       {error ? <p className="mb-4 text-sm text-danger">{error}</p> : null}
 
-      <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        Stored settings — fetched{' '}
-        {generation === 0 ? 'not yet' : `${generation}×`}
-      </h2>
-      <KeyList keys={keys} error={keysError} />
+      <ProjectList
+        projects={projects}
+        loaded={loaded}
+        busy={busy}
+        onRename={page.startRename}
+        onRemove={page.startRemove}
+      />
 
       <Separator className="my-6" />
 

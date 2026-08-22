@@ -21,6 +21,15 @@ const (
 	KindSet = "set"
 	// KindDelete removes one.
 	KindDelete = "delete"
+	// KindProjectCreate creates a project.
+	KindProjectCreate = "project.create"
+	// KindProjectRename changes a project's display name.
+	KindProjectRename = "project.rename"
+	// KindProjectRepoint changes where a project's data lives, moving no
+	// files.
+	KindProjectRepoint = "project.repoint"
+	// KindProjectRemove removes a project and deletes its root directory.
+	KindProjectRemove = "project.remove"
 )
 
 // Frame kinds the server sends.
@@ -53,9 +62,14 @@ type Inbound struct {
 	ID   string `json:"id,omitempty"`
 	Room string `json:"room,omitempty"`
 
-	// Key and Value carry a mutation.
+	// Key and Value carry a settings mutation.
 	Key   string          `json:"key,omitempty"`
 	Value json.RawMessage `json:"value,omitempty"`
+
+	// Project, Name and Root carry a project mutation.
+	Project string `json:"project,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Root    string `json:"root,omitempty"`
 
 	// Idempotency makes a command safe to send twice.
 	//
@@ -81,4 +95,8 @@ type Outbound struct {
 	Kind   string          `json:"kind,omitempty"`
 	Data   json.RawMessage `json:"data,omitempty"`
 	Error  string          `json:"error,omitempty"`
+	// Result carries what a command produced, when it produced something —
+	// the created or changed project, for instance. A removal produces
+	// nothing and carries none.
+	Result json.RawMessage `json:"result,omitempty"`
 }

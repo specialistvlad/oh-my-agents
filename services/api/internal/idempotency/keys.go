@@ -17,8 +17,14 @@ import (
 
 // Outcome is what a command produced, kept so a replay can be answered with
 // the original result rather than by doing the work again.
+//
+// Result carries whatever the command returned — the created project, say.
+// Without it a replayed create is acknowledged but says nothing about what was
+// created, which leaves the retrying client worse off than the one that never
+// lost its connection. Answering a replay means answering it fully.
 type Outcome struct {
-	Err error
+	Err    error
+	Result []byte
 }
 
 // Keys remembers outcomes for a while.
