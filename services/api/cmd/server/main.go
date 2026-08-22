@@ -63,6 +63,7 @@ func run() int {
 		BuildTime:   app.BuildTime,
 		Environment: app.Environment,
 		Profiling:   app.EnableProfiling,
+		Origins:     app.AllowedOrigins,
 		Timeouts:    app.Server.HTTP,
 		Mounts: []httpserver.Mount{
 			{Prefix: "/settings/", Handler: settingshttp.New(store, settingshttp.BusAnnouncer{Bus: messages})},

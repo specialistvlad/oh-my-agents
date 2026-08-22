@@ -22,7 +22,10 @@ function Index() {
     configuration.apiUrl,
     ROOMS
   );
-  const { keys } = useSettingsKeys(configuration.apiUrl, generation);
+  const { keys, error: keysError } = useSettingsKeys(
+    configuration.apiUrl,
+    generation
+  );
   const { write, busy, error } = useSettingsWriter(configuration.apiUrl);
 
   return (
@@ -58,7 +61,7 @@ function Index() {
         Stored settings — fetched{' '}
         {generation === 0 ? 'not yet' : `${generation}×`}
       </Typography>
-      <KeyList keys={keys} />
+      <KeyList keys={keys} error={keysError} />
 
       <Divider sx={{ my: 3 }} />
 

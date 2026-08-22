@@ -34,13 +34,22 @@ type Config struct {
 	// is handed and knows nothing about what any of it does.
 	Mounts []Mount
 
+	// Origins may read responses from a browser. Empty allows none, which
+	// is correct for a service with no browser client and wrong the moment
+	// there is one.
+	Origins []string
+
 	Timeouts config.HTTPCfg
 }
 
-// Mount attaches a handler to a subtree. Prefix is relative to Config.Prefix
-// and must start and end with "/", e.g. "/settings/". The handler sees paths
-// with the prefix stripped, so it registers relative patterns and does not
-// care where it was mounted.
+// Mount attaches a handler at a path relative to Config.Prefix.
+//
+// A Prefix ending in "/" mounts a subtree — "/settings/" serves
+// "/settings/anything" — and the handler sees paths with the prefix stripped,
+// so it registers relative patterns and does not care where it was mounted.
+// A Prefix without the trailing slash mounts that one exact path, which is
+// what a single endpoint like "/ws" wants; such a handler sees an empty path
+// and must not be a router.
 type Mount struct {
 	Prefix  string
 	Handler http.Handler

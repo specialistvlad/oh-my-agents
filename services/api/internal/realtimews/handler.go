@@ -17,6 +17,15 @@ import (
 // a writer goroutine forever.
 const writeTimeout = 10 * time.Second
 
+// Keepalive defaults. A connection whose network died without a close frame
+// looks exactly like an idle one — the socket stays open, its goroutines stay
+// parked and the hub keeps a room membership for a client that is gone.
+// Pinging is the only way to tell the two apart.
+const (
+	defaultPingEvery   = 30 * time.Second
+	defaultPingTimeout = 10 * time.Second
+)
+
 // Hub is what this transport needs: somewhere to register a connection.
 // Declared here, in the consumer, per ADR-0002.
 type Hub interface {
@@ -29,6 +38,25 @@ type Options struct {
 	// rejects every cross-origin request, which is the safe default and
 	// wrong for local development, so the caller supplies the dev origin.
 	Origins []string
+
+	// PingEvery and PingTimeout detect a connection whose network died
+	// without closing. Zero means the defaults; tests shorten them.
+	PingEvery   time.Duration
+	PingTimeout time.Duration
+}
+
+func (o Options) pingEvery() time.Duration {
+	if o.PingEvery > 0 {
+		return o.PingEvery
+	}
+	return defaultPingEvery
+}
+
+func (o Options) pingTimeout() time.Duration {
+	if o.PingTimeout > 0 {
+		return o.PingTimeout
+	}
+	return defaultPingTimeout
 }
 
 // New returns a handler that upgrades to a WebSocket and serves one hub
@@ -48,13 +76,13 @@ func New(h Hub, opts Options) http.Handler {
 		}
 		defer func() { _ = sock.CloseNow() }()
 
-		serve(r.Context(), sock, h.Connect())
+		serve(r.Context(), sock, h.Connect(), opts)
 	})
 }
 
 // serve runs one connection: a reader goroutine turning frames into hub
 // calls, and this goroutine writing deliveries out.
-func serve(ctx context.Context, sock *websocket.Conn, conn *realtime.Conn) {
+func serve(ctx context.Context, sock *websocket.Conn, conn *realtime.Conn, opts Options) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer conn.Close()
@@ -63,6 +91,7 @@ func serve(ctx context.Context, sock *websocket.Conn, conn *realtime.Conn) {
 		return
 	}
 	go read(ctx, cancel, sock, conn)
+	go keepalive(ctx, cancel, sock, opts)
 
 	for {
 		select {
@@ -93,6 +122,33 @@ func read(ctx context.Context, cancel context.CancelFunc, sock *websocket.Conn, 
 		}
 		if err := write(ctx, sock, handle(in, conn)); err != nil {
 			return
+		}
+	}
+}
+
+// keepalive pings until a ping goes unanswered, then cancels the connection.
+//
+// Without this a client that vanished — a closed laptop, a dropped network —
+// holds a socket, two goroutines and its room memberships indefinitely,
+// because nothing ever arrives to fail on. The ping is what turns silence
+// into an error.
+func keepalive(ctx context.Context, cancel context.CancelFunc, sock *websocket.Conn, opts Options) {
+	defer cancel()
+	ticker := time.NewTicker(opts.pingEvery())
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			pinged, done := context.WithTimeout(ctx, opts.pingTimeout())
+			err := sock.Ping(pinged)
+			done()
+			if err != nil {
+				slog.Debug("websocket ping unanswered, dropping", "err", err)
+				return
+			}
 		}
 	}
 }

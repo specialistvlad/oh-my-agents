@@ -42,5 +42,5 @@ func newHandler(cfg Config) http.Handler {
 		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
-	return mux
+	return cors(cfg.Origins, mux)
 }

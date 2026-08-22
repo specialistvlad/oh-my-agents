@@ -8,6 +8,7 @@ package realtime
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/bus"
@@ -48,7 +49,20 @@ func (h *Hub) Attach(ctx context.Context, sub bus.Subscriber) (func() error, err
 	}, nil
 }
 
-// dispatch delivers one message to every connection in one of its rooms.
+// dispatch delivers one message to every connection in one of its rooms, and
+// records it.
+//
+// Every event this process observes passes through here — whatever published
+// it, and later whatever process it came from — which makes this the one
+// place worth logging from. The line carries what is needed to answer "did
+// that happen, and did anyone get it": the sequence, the rooms, and how many
+// connections it reached. A zero there is the usual explanation for a client
+// that saw nothing.
+//
+// The payload is logged separately, at debug. Settings values and, in time,
+// task contents travel through here, and an unconditional dump of every
+// payload to stdout is how credentials end up in a log file. Identity at
+// info, contents only when asked for.
 //
 // A gap in the bus's sequence means the hub itself fell behind, so every
 // connection is told to resynchronise: the hub cannot know what it missed or
@@ -63,6 +77,7 @@ func (h *Hub) dispatch(m bus.Message) {
 	}
 	h.mu.Unlock()
 
+	delivered := 0
 	for _, c := range conns {
 		if gap {
 			c.resync()
@@ -71,10 +86,29 @@ func (h *Hub) dispatch(m bus.Message) {
 		for _, room := range m.Rooms {
 			if c.joined(room) {
 				c.deliver(Delivery{Room: room, Seq: m.Seq, Kind: m.Kind, Data: m.Data})
+				delivered++
 				break // one delivery per message, however many rooms match
 			}
 		}
 	}
+	h.record(m, delivered, gap)
+}
+
+// record writes one line per event.
+func (h *Hub) record(m bus.Message, delivered int, gap bool) {
+	if gap {
+		slog.Warn("event gap, every connection resyncing",
+			"seq", m.Seq, "connections", len(h.conns))
+		return
+	}
+	slog.Info("event",
+		"seq", m.Seq,
+		"kind", m.Kind,
+		"rooms", m.Rooms,
+		"delivered", delivered,
+		"bytes", len(m.Data),
+	)
+	slog.Debug("event payload", "seq", m.Seq, "data", string(m.Data))
 }
 
 // Connect registers a connection. The caller closes it when its transport
