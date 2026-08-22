@@ -22,7 +22,9 @@ func serve(t *testing.T) (http.Handler, projects.Store) {
 		t.Fatalf("NewFS: %v", err)
 	}
 	store := projects.NewRegistry(projects.Deps{Records: records, Workspace: workspace})
-	return projectshttp.New(store), store
+	mux := http.NewServeMux()
+	projectshttp.Register(mux, store)
+	return mux, store
 }
 
 func do(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {
@@ -50,20 +52,20 @@ func decodeProject(t *testing.T, rec *httptest.ResponseRecorder) projects.Projec
 func TestCreateReadListDelete(t *testing.T) {
 	h, _ := serve(t)
 
-	rec := do(t, h, http.MethodPost, "/", `{"name":"ACME Website"}`)
+	rec := do(t, h, http.MethodPost, "/projects/", `{"name":"ACME Website"}`)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("POST = %d, want 201: %s", rec.Code, rec.Body)
 	}
 	created := decodeProject(t, rec)
 
-	if code := do(t, h, http.MethodGet, "/"+string(created.ID), "").Code; code != http.StatusOK {
+	if code := do(t, h, http.MethodGet, "/projects/"+string(created.ID), "").Code; code != http.StatusOK {
 		t.Errorf("GET one = %d, want 200", code)
 	}
 
 	var list struct {
 		Projects []projects.Project `json:"projects"`
 	}
-	rec = do(t, h, http.MethodGet, "/", "")
+	rec = do(t, h, http.MethodGet, "/projects/", "")
 	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
 		t.Fatalf("decode list: %v", err)
 	}
@@ -71,10 +73,10 @@ func TestCreateReadListDelete(t *testing.T) {
 		t.Errorf("list = %d projects, want 1", len(list.Projects))
 	}
 
-	if code := do(t, h, http.MethodDelete, "/"+string(created.ID), "").Code; code != http.StatusNoContent {
+	if code := do(t, h, http.MethodDelete, "/projects/"+string(created.ID), "").Code; code != http.StatusNoContent {
 		t.Errorf("DELETE = %d, want 204", code)
 	}
-	if code := do(t, h, http.MethodGet, "/"+string(created.ID), "").Code; code != http.StatusNotFound {
+	if code := do(t, h, http.MethodGet, "/projects/"+string(created.ID), "").Code; code != http.StatusNotFound {
 		t.Errorf("GET after DELETE = %d, want 404", code)
 	}
 }
@@ -82,7 +84,7 @@ func TestCreateReadListDelete(t *testing.T) {
 // An empty listing must be an array, so a client never has to handle null.
 func TestEmptyListIsAnArray(t *testing.T) {
 	h, _ := serve(t)
-	rec := do(t, h, http.MethodGet, "/", "")
+	rec := do(t, h, http.MethodGet, "/projects/", "")
 	if !strings.Contains(rec.Body.String(), `"projects":[]`) {
 		t.Errorf("body = %s, want an empty array", rec.Body.String())
 	}
@@ -90,10 +92,10 @@ func TestEmptyListIsAnArray(t *testing.T) {
 
 func TestPatchRenamesAndRepoints(t *testing.T) {
 	h, _ := serve(t)
-	created := decodeProject(t, do(t, h, http.MethodPost, "/", `{"name":"Before"}`))
+	created := decodeProject(t, do(t, h, http.MethodPost, "/projects/", `{"name":"Before"}`))
 	elsewhere := filepath.Join(t.TempDir(), "moved")
 
-	rec := do(t, h, http.MethodPatch, "/"+string(created.ID),
+	rec := do(t, h, http.MethodPatch, "/projects/"+string(created.ID),
 		`{"name":"After","root":"`+elsewhere+`"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PATCH = %d, want 200: %s", rec.Code, rec.Body)
@@ -109,8 +111,8 @@ func TestPatchRenamesAndRepoints(t *testing.T) {
 
 func TestPatchWithNothingToChange(t *testing.T) {
 	h, _ := serve(t)
-	created := decodeProject(t, do(t, h, http.MethodPost, "/", `{"name":"Idle"}`))
-	if code := do(t, h, http.MethodPatch, "/"+string(created.ID), `{}`).Code; code != http.StatusBadRequest {
+	created := decodeProject(t, do(t, h, http.MethodPost, "/projects/", `{"name":"Idle"}`))
+	if code := do(t, h, http.MethodPatch, "/projects/"+string(created.ID), `{}`).Code; code != http.StatusBadRequest {
 		t.Errorf("empty PATCH = %d, want 400", code)
 	}
 }
@@ -123,14 +125,14 @@ func TestBadInputIs400(t *testing.T) {
 		"not json":   `nonsense`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			if code := do(t, h, http.MethodPost, "/", body).Code; code != http.StatusBadRequest {
+			if code := do(t, h, http.MethodPost, "/projects/", body).Code; code != http.StatusBadRequest {
 				t.Errorf("POST %s = %d, want 400", body, code)
 			}
 		})
 	}
 	// Percent-encoded, because a raw space cannot appear in a request line.
 	// The mux decodes it, so the store still sees the malformed id.
-	if code := do(t, h, http.MethodGet, "/Not%20A%20Valid%20Id", "").Code; code != http.StatusBadRequest {
+	if code := do(t, h, http.MethodGet, "/projects/Not%20A%20Valid%20Id", "").Code; code != http.StatusBadRequest {
 		t.Errorf("GET with a malformed id = %d, want 400", code)
 	}
 }
@@ -139,7 +141,7 @@ func TestBadInputIs400(t *testing.T) {
 // the directory is not what the record says it is.
 func TestRemovingAnUnmarkedRootIs409(t *testing.T) {
 	h, store := serve(t)
-	created := decodeProject(t, do(t, h, http.MethodPost, "/", `{"name":"Guarded"}`))
+	created := decodeProject(t, do(t, h, http.MethodPost, "/projects/", `{"name":"Guarded"}`))
 
 	p, err := store.Get(t.Context(), created.ID)
 	if err != nil {
@@ -148,7 +150,7 @@ func TestRemovingAnUnmarkedRootIs409(t *testing.T) {
 	if err := os.Remove(filepath.Join(p.Root, projects.MarkerName)); err != nil {
 		t.Fatalf("removing the marker: %v", err)
 	}
-	rec := do(t, h, http.MethodDelete, "/"+string(created.ID), "")
+	rec := do(t, h, http.MethodDelete, "/projects/"+string(created.ID), "")
 	if rec.Code != http.StatusConflict {
 		t.Errorf("DELETE of an unmarked root = %d, want 409", rec.Code)
 	}

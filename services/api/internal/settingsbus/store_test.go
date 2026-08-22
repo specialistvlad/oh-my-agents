@@ -19,7 +19,7 @@ func TestConformance(t *testing.T) {
 	settingstest.Run(t, func(t *testing.T) settings.Store {
 		b := bus.NewMemory()
 		t.Cleanup(func() { _ = b.Close() })
-		return settingsbus.New(settings.NewMemory(), b)
+		return settingsbus.New(settings.NewMemory(), b, "project:test")
 	})
 }
 
@@ -31,7 +31,7 @@ func listening(t *testing.T) (settings.Store, <-chan bus.Message) {
 	if err != nil {
 		t.Fatalf("Subscribe: %v", err)
 	}
-	return settingsbus.New(settings.NewMemory(), b), messages
+	return settingsbus.New(settings.NewMemory(), b, "project:test"), messages
 }
 
 func next(t *testing.T, messages <-chan bus.Message) bus.Message {
@@ -52,7 +52,7 @@ func TestAnnouncesWrites(t *testing.T) {
 		t.Fatalf("Set: %v", err)
 	}
 	m := next(t, messages)
-	if m.Kind != settingsbus.KindChanged || len(m.Rooms) != 1 || m.Rooms[0] != settingsbus.Room {
+	if m.Kind != settingsbus.KindChanged || len(m.Rooms) != 1 || m.Rooms[0] != "project:test" {
 		t.Errorf("message = %+v, want a setting.changed in the settings room", m)
 	}
 
@@ -107,7 +107,7 @@ func TestSaysNothingWhenTheWriteFailed(t *testing.T) {
 
 // A process with no realtime surface wires the same way.
 func TestWorksWithNoPublisher(t *testing.T) {
-	store := settingsbus.New(settings.NewMemory(), nil)
+	store := settingsbus.New(settings.NewMemory(), nil, "project:test")
 	if err := store.Set(context.Background(), "k", settings.Document(`{}`)); err != nil {
 		t.Errorf("Set with no publisher: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestAWriteSurvivesAFailedAnnouncement(t *testing.T) {
 	if err := b.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
-	store := settingsbus.New(settings.NewMemory(), b)
+	store := settingsbus.New(settings.NewMemory(), b, "project:test")
 
 	if err := store.Set(t.Context(), "k", settings.Document(`{"v":1}`)); err != nil {
 		t.Fatalf("Set = %v; a durable write must not fail because nobody heard about it", err)

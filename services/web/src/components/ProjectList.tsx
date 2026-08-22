@@ -3,16 +3,20 @@ import type { Project } from '@/projects/types';
 
 type Props = {
   projects: Project[];
+  selectedID: string | null;
   loaded: boolean;
   busy: boolean;
+  onSelect: (project: Project) => void;
   onRename: (project: Project) => void;
   onRemove: (project: Project) => void;
 };
 
 export function ProjectList({
   projects,
+  selectedID,
   loaded,
   busy,
+  onSelect,
   onRename,
   onRemove,
 }: Props) {
@@ -33,7 +37,9 @@ export function ProjectList({
         <ProjectRow
           key={project.id}
           project={project}
+          selected={project.id === selectedID}
           busy={busy}
+          onSelect={onSelect}
           onRename={onRename}
           onRemove={onRemove}
         />

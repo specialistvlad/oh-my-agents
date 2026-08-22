@@ -1,4 +1,4 @@
-// Package settingshttp exposes a settings store over HTTP.
+// Package settingshttp exposes a project's settings over HTTP.
 //
 // The interfaces below are declared here, in the consumer, and hold only the
 // methods this handler calls (ADR-0002). Nothing in this package names a
@@ -11,12 +11,20 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/projects"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settings"
 )
 
 // maxBody caps a stored document. Settings are small by nature, and an
 // unbounded reader writing straight to disk is not something to leave open.
 const maxBody = 1 << 20
+
+// Scopes resolves a project into its settings store. Declared here, in the
+// consumer: this package never sees a workspace path or a room name, only a
+// store that is already rooted where it belongs (ADR-0009).
+type Scopes interface {
+	Settings(ctx context.Context, id projects.ID) (settings.Store, error)
+}
 
 // Store is what serving settings needs and nothing more.
 //
@@ -31,21 +39,27 @@ type Store interface {
 	Keys(ctx context.Context) ([]settings.Key, error)
 }
 
-// New returns a handler serving one store:
+// Register mounts the settings routes on mux:
 //
-//	GET    /          list keys
-//	GET    /{key...}  read one document
-//	PUT    /{key...}  write one document
-//	DELETE /{key...}  remove one document
+//	GET    /projects/{project}/settings/          list keys
+//	GET    /projects/{project}/settings/{key...}  read one document
+//	PUT    /projects/{project}/settings/{key...}  write one document
+//	DELETE /projects/{project}/settings/{key...}  remove one document
 //
-// It is mounted under a prefix by the caller, so the patterns here are
-// relative and the handler does not care where it lives.
+// Absolute patterns rather than a mounted subtree, because the project is a
+// path segment in the middle: stripping a prefix to mount this would throw
+// away the very part it needs.
 //
-// There is no authentication. Nothing in this service has any yet, and until
-// that changes this must not be exposed beyond a trusted network.
-func New(s Store) http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+// There is no authentication. Anything reachable here can read and write any
+// project's settings, so this must not be exposed beyond a trusted network.
+func Register(mux *http.ServeMux, scopes Scopes) {
+	const base = "/projects/{project}/settings/"
+
+	mux.HandleFunc("GET "+base+"{$}", func(w http.ResponseWriter, r *http.Request) {
+		s, ok := storeFor(w, r, scopes)
+		if !ok {
+			return
+		}
 		keys, err := s.Keys(r.Context())
 		if err != nil {
 			writeErr(w, err)
@@ -53,7 +67,11 @@ func New(s Store) http.Handler {
 		}
 		writeJSON(w, http.StatusOK, keysBody{Keys: nonNil(keys)})
 	})
-	mux.HandleFunc("GET /{key...}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET "+base+"{key...}", func(w http.ResponseWriter, r *http.Request) {
+		s, ok := storeFor(w, r, scopes)
+		if !ok {
+			return
+		}
 		doc, err := s.Get(r.Context(), key(r))
 		if err != nil {
 			writeErr(w, err)
@@ -63,17 +81,35 @@ func New(s Store) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(doc)
 	})
-	mux.HandleFunc("PUT /{key...}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("PUT "+base+"{key...}", func(w http.ResponseWriter, r *http.Request) {
+		s, ok := storeFor(w, r, scopes)
+		if !ok {
+			return
+		}
 		put(w, r, s)
 	})
-	mux.HandleFunc("DELETE /{key...}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("DELETE "+base+"{key...}", func(w http.ResponseWriter, r *http.Request) {
+		s, ok := storeFor(w, r, scopes)
+		if !ok {
+			return
+		}
 		if err := s.Delete(r.Context(), key(r)); err != nil {
 			writeErr(w, err)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	return mux
+}
+
+// storeFor resolves the project in the path, answering the request itself if
+// it cannot.
+func storeFor(w http.ResponseWriter, r *http.Request, scopes Scopes) (Store, bool) {
+	s, err := scopes.Settings(r.Context(), projects.ID(r.PathValue("project")))
+	if err != nil {
+		writeErr(w, err)
+		return nil, false
+	}
+	return s, true
 }
 
 func put(w http.ResponseWriter, r *http.Request, s Store) {
@@ -105,8 +141,10 @@ func key(r *http.Request) settings.Key {
 // the host as the request.
 func writeErr(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, settings.ErrNotFound):
+	case errors.Is(err, settings.ErrNotFound), errors.Is(err, projects.ErrNotFound):
 		writeJSON(w, http.StatusNotFound, errBody{Error: err.Error()})
+	case errors.Is(err, projects.ErrInvalidID):
+		writeJSON(w, http.StatusBadRequest, errBody{Error: err.Error()})
 	case errors.Is(err, settings.ErrInvalidKey), errors.Is(err, settings.ErrInvalidDocument):
 		writeJSON(w, http.StatusBadRequest, errBody{Error: err.Error()})
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):

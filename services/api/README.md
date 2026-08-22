@@ -42,6 +42,9 @@ Passing it is not the same as being simple.
 | `internal/projects`       | Project lifecycle. Its registry is a settings store. |
 | `internal/projectsbus`    | A project store that announces what it changes.      |
 | `internal/projectshttp`   | The project lifecycle over HTTP.                     |
+| `internal/scopes`         | Hands out stores already rooted in a project.        |
+| `internal/rooms`          | The realtime room names, spelled once.               |
+| `internal/httpapi`        | Assembles the HTTP URL space.                        |
 | `internal/realtime`       | Rooms and per-connection queues.                     |
 | `internal/realtimews`     | The realtime hub over a WebSocket.                   |
 | `internal/tracker`        | Task tracker domain model, ports and validation.     |

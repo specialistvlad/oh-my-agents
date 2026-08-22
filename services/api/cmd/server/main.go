@@ -10,15 +10,14 @@ import (
 
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/bus"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/config"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/httpapi"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/httpserver"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/projects"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/projectsbus"
-	"github.com/specialistvlad/oh-my-agents/services/api/internal/projectshttp"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/realtime"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/realtimews"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/scopes"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settings"
-	"github.com/specialistvlad/oh-my-agents/services/api/internal/settingsbus"
-	"github.com/specialistvlad/oh-my-agents/services/api/internal/settingshttp"
 )
 
 func main() {
@@ -50,10 +49,6 @@ func run() int {
 	messages := bus.NewMemory()
 	defer func() { _ = messages.Close() }()
 
-	// Announcing wraps the store, so every write is heard however it
-	// arrived — over HTTP or over the socket.
-	store := settingsbus.New(files, messages)
-
 	// The registry is a settings store in the shared scope: a project
 	// record is a JSON document addressed by an id, which is what settings
 	// already is (ADR-0010).
@@ -66,6 +61,11 @@ func run() int {
 		Records:   shared,
 		Workspace: files.Dir(),
 	}), messages)
+
+	// Everything project-shaped is reached through scopes, which hands out
+	// stores already rooted in the right project (ADR-0009). Nothing above
+	// it can address a project it was not given.
+	scoped := scopes.New(registry, messages)
 
 	hub := realtime.New()
 	ctx, stopHub := context.WithCancel(context.Background())
@@ -88,11 +88,13 @@ func run() int {
 		Origins:     app.AllowedOrigins,
 		Timeouts:    app.Server.HTTP,
 		Mounts: []httpserver.Mount{
-			{Prefix: "/settings/", Handler: settingshttp.New(store)},
-			{Prefix: "/projects/", Handler: projectshttp.New(registry)},
+			{Prefix: "/", Handler: httpapi.New(httpapi.Deps{
+				Projects: registry,
+				Scopes:   scoped,
+			})},
 			{Prefix: "/ws", Handler: realtimews.New(hub, realtimews.Options{
 				Origins:  app.AllowedOrigins,
-				Settings: store,
+				Settings: scoped,
 				Projects: registry,
 			})},
 		},

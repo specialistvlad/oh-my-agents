@@ -35,20 +35,21 @@ type change struct {
 	Root *string `json:"root,omitempty"`
 }
 
-// New returns a handler:
+// Register mounts the project routes on mux:
 //
-//	GET    /        list
-//	POST   /        create
-//	GET    /{id}    read one
-//	PATCH  /{id}    rename and/or re-point
-//	DELETE /{id}    remove, which deletes the root directory
+//	GET    /projects/      list
+//	POST   /projects/      create
+//	GET    /projects/{id}  read one
+//	PATCH  /projects/{id}  rename and/or re-point
+//	DELETE /projects/{id}  remove, which deletes the root directory
+//
+// Absolute patterns, so that per-project resources can register alongside
+// these without either package owning the other's URLs.
 //
 // There is no authentication, so this must not be reachable from an untrusted
 // network — the more so here, because DELETE removes a directory.
-func New(s Store) http.Handler {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+func Register(mux *http.ServeMux, s Store) {
+	mux.HandleFunc("GET /projects/{$}", func(w http.ResponseWriter, r *http.Request) {
 		all, err := s.List(r.Context())
 		if err != nil {
 			writeErr(w, err)
@@ -56,7 +57,7 @@ func New(s Store) http.Handler {
 		}
 		writeJSON(w, http.StatusOK, listBody{Projects: nonNil(all)})
 	})
-	mux.HandleFunc("POST /{$}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /projects/{$}", func(w http.ResponseWriter, r *http.Request) {
 		var in projects.New
 		if !decode(w, r, &in) {
 			return
@@ -68,7 +69,7 @@ func New(s Store) http.Handler {
 		}
 		writeJSON(w, http.StatusCreated, created)
 	})
-	mux.HandleFunc("GET /{id}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /projects/{id}", func(w http.ResponseWriter, r *http.Request) {
 		p, err := s.Get(r.Context(), id(r))
 		if err != nil {
 			writeErr(w, err)
@@ -76,17 +77,16 @@ func New(s Store) http.Handler {
 		}
 		writeJSON(w, http.StatusOK, p)
 	})
-	mux.HandleFunc("PATCH /{id}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("PATCH /projects/{id}", func(w http.ResponseWriter, r *http.Request) {
 		patch(w, r, s)
 	})
-	mux.HandleFunc("DELETE /{id}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("DELETE /projects/{id}", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.Remove(r.Context(), id(r)); err != nil {
 			writeErr(w, err)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	return mux
 }
 
 // patch applies a rename, a re-point, or both. Both are separate calls on the

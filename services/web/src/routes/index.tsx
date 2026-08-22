@@ -8,26 +8,34 @@ import { ProjectList } from '@/components/ProjectList';
 import { RenameProject } from '@/components/RenameProject';
 import { Separator } from '@/components/ui/separator';
 import { configuration } from '@/core/configuration';
+import { useCurrentProject } from '@/hooks/useCurrentProject';
 import { useProjectWriter } from '@/hooks/useProjectWriter';
 import { useProjects } from '@/hooks/useProjects';
 import { useProjectsPage } from '@/hooks/useProjectsPage';
 import { useRealtime } from '@/hooks/useRealtime';
-import { PROJECTS_ROOM } from '@/projects/types';
+import { PROJECTS_ROOM, projectRoom } from '@/projects/types';
 
 export const Route = createFileRoute('/')({ component: Index });
 
-const ROOMS = [PROJECTS_ROOM];
-
 function Index() {
+  // Which project is current is remembered per device; reading it before the
+  // list arrives is what lets the right room be joined on the first connect
+  // rather than after a round trip.
+  const remembered = useCurrentProject([], false);
+  const rooms = remembered.id
+    ? [PROJECTS_ROOM, projectRoom(remembered.id)]
+    : [PROJECTS_ROOM];
+
   const { client, status, events, generation } = useRealtime(
     configuration.apiUrl,
-    ROOMS
+    rooms
   );
   const {
     projects,
     error: listError,
     loaded,
   } = useProjects(configuration.apiUrl, generation, events);
+  const current = useCurrentProject(projects, loaded);
   const {
     create,
     rename,
@@ -90,8 +98,10 @@ function Index() {
 
       <ProjectList
         projects={projects}
+        selectedID={current.id}
         loaded={loaded}
         busy={busy}
+        onSelect={(p) => current.select(current.id === p.id ? null : p.id)}
         onRename={page.startRename}
         onRemove={page.startRemove}
       />

@@ -19,10 +19,6 @@ import (
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settings"
 )
 
-// Room is where settings activity is published. One room today; ADR-0009
-// scopes it per project once projects exist.
-const Room bus.Room = "settings"
-
 // Event kinds published on a write.
 const (
 	KindChanged = "setting.changed"
@@ -33,12 +29,16 @@ const (
 type Store struct {
 	inner settings.Store
 	pub   bus.Publisher
+	room  bus.Room
 }
 
 // New wraps a store. A nil publisher is valid and announces nothing, so a
 // process with no realtime surface wires the same way.
-func New(inner settings.Store, pub bus.Publisher) *Store {
-	return &Store{inner: inner, pub: pub}
+// The room is a parameter rather than a constant because settings are scoped
+// to a project now (ADR-0009), so their announcements belong to that
+// project's room rather than to one global one.
+func New(inner settings.Store, pub bus.Publisher, room bus.Room) *Store {
+	return &Store{inner: inner, pub: pub, room: room}
 }
 
 // Get implements [settings.Reader].
@@ -89,7 +89,7 @@ func (s *Store) announce(ctx context.Context, kind string, key settings.Key) {
 		slog.Warn("cannot encode a settings announcement", "key", key, "err", err)
 		return
 	}
-	if err := s.pub.Publish(ctx, bus.Message{Rooms: []bus.Room{Room}, Kind: kind, Data: payload}); err != nil {
+	if err := s.pub.Publish(ctx, bus.Message{Rooms: []bus.Room{s.room}, Kind: kind, Data: payload}); err != nil {
 		slog.Warn("cannot announce a settings write", "key", key, "err", err)
 	}
 }
