@@ -75,7 +75,8 @@ func parseSort(params url.Values) (tracker.Sort, error) {
 	sort := tracker.Sort{By: tracker.SortCreatedAt, Desc: params.Get("desc") == "true"}
 	switch by := params.Get("sort"); by {
 	case "":
-	case string(tracker.SortCreatedAt), string(tracker.SortUpdatedAt), string(tracker.SortTitle):
+	case string(tracker.SortCreatedAt), string(tracker.SortUpdatedAt),
+		string(tracker.SortTitle), string(tracker.SortRank):
 		sort.By = tracker.SortKey(by)
 	default:
 		return tracker.Sort{}, fmt.Errorf("unknown sort %q", by)

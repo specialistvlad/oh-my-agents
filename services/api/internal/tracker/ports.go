@@ -57,6 +57,21 @@ type ItemWriter interface {
 	CreateItem(ctx context.Context, n NewItem) (Item, error)
 	UpdateItem(ctx context.Context, id ItemID, expected Version, p Patch) (Item, error)
 	DeleteItem(ctx context.Context, id ItemID, expected Version, by ActorRef) error
+
+	// Reorder places an item between two neighbors. A nil after means the
+	// start of the project's order and a nil before means the end, so
+	// Reorder(id, nil, nil) puts an item alone at the top.
+	//
+	// It states no version and bumps none, deliberately: a drag is not an
+	// edit, and because UpdateItem applies a patch on top of state it
+	// re-reads, an edit saved after a drag cannot revert it. Two clients
+	// dragging one card is last-write-wins and silent, because a drag states
+	// a position rather than a change to one (ADR-0013).
+	//
+	// The store mints the rank: a caller names the neighbors it can see and
+	// never the key itself, so nothing outside this package depends on how
+	// ranks are written.
+	Reorder(ctx context.Context, id ItemID, after, before *ItemID) error
 }
 
 // SubtreeReader answers questions about an item's place in the tree without

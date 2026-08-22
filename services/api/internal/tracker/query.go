@@ -58,6 +58,9 @@ const (
 	SortUpdatedAt SortKey = "updated_at"
 	// SortTitle orders lexicographically by title.
 	SortTitle SortKey = "title"
+	// SortRank orders by where someone put it (ADR-0013). This is the order
+	// a board shows, and the only one a person changes directly.
+	SortRank SortKey = "rank"
 )
 
 // PageRequest asks for one page. An empty Cursor starts at the beginning.

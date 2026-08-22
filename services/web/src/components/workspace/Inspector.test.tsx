@@ -32,6 +32,7 @@ const item: Item = {
   status: 'todo-0001',
   parent: null,
   fields: {},
+  rank: 'n',
   version: 2,
   created_at: '',
   updated_at: '',

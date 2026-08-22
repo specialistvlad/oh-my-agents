@@ -69,6 +69,13 @@ func applyTracker(ctx context.Context, in Inbound, scopes Trackers) (any, error)
 		}
 		_ = json.Unmarshal(in.Body, &by) // an absent body means an unattributed delete
 		return nil, store.DeleteItem(ctx, tracker.ItemID(in.Item), tracker.Version(in.Version), by.Author)
+	case KindItemReorder:
+		var at struct {
+			After  *tracker.ItemID `json:"after,omitempty"`
+			Before *tracker.ItemID `json:"before,omitempty"`
+		}
+		_ = json.Unmarshal(in.Body, &at) // an absent body means the start
+		return nil, store.Reorder(ctx, tracker.ItemID(in.Item), at.After, at.Before)
 	case KindCommentAdd:
 		var n tracker.NewComment
 		if err := json.Unmarshal(in.Body, &n); err != nil {

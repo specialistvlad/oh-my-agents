@@ -34,6 +34,12 @@ func (s *Store) CreateItem(ctx context.Context, n tracker.NewItem) (tracker.Item
 	if err := s.schema.ValidateNew(n); err != nil {
 		return tracker.Item{}, err
 	}
+	// Appending is the only answer to "where does a new item go" that does
+	// not surprise someone (ADR-0013).
+	rank, err := tracker.Between(s.lastRank(), "")
+	if err != nil {
+		return tracker.Item{}, err
+	}
 	now := s.clock.Now()
 	item := tracker.Item{
 		ID:        tracker.ItemID(s.ids.NewID()),
@@ -43,6 +49,7 @@ func (s *Store) CreateItem(ctx context.Context, n tracker.NewItem) (tracker.Item
 		Status:    t.Initial,
 		Parent:    n.Parent,
 		Fields:    t.ApplyDefaults(n.Fields),
+		Rank:      rank,
 		CreatedBy: n.Author,
 		CreatedAt: now,
 		UpdatedBy: n.Author,

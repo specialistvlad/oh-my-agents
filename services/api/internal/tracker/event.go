@@ -35,6 +35,10 @@ const (
 	// EventItemDeleted is a removed item. A reader that never sees this
 	// cannot tell a deletion from an item it simply has not heard about.
 	EventItemDeleted EventKind = "item_deleted"
+	// EventItemReordered is a move to a new position. It carries no changes:
+	// a rank is this package's business and means nothing to a reader
+	// (ADR-0013), so what the event says is that the order changed.
+	EventItemReordered EventKind = "item_reordered"
 	// EventCommentAdded is a new comment.
 	EventCommentAdded EventKind = "comment_added"
 	// EventCommentEdited is an edited comment.

@@ -26,12 +26,19 @@ type Item struct {
 	Parent *ItemID `json:"parent"`
 	// Fields holds values for the keys declared by Type. A key absent here
 	// has no value; there is no distinction between absent and null.
-	Fields    map[FieldID]Value `json:"fields"`
-	CreatedBy ActorRef          `json:"created_by"`
-	CreatedAt time.Time         `json:"created_at"`
-	UpdatedBy ActorRef          `json:"updated_by"`
-	UpdatedAt time.Time         `json:"updated_at"`
-	Version   Version           `json:"version"`
+	Fields map[FieldID]Value `json:"fields"`
+	// Rank orders this item against every other in the project (ADR-0013).
+	// It is global rather than per status, so a column's order falls out of
+	// filtering rather than being maintained separately.
+	//
+	// It is not settable through [Patch]: reordering is its own operation,
+	// which is what keeps a drag from conflicting with an edit.
+	Rank      Rank      `json:"rank"`
+	CreatedBy ActorRef  `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedBy ActorRef  `json:"updated_by"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Version   Version   `json:"version"`
 }
 
 // NewItem is the input to creating an item.

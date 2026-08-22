@@ -39,6 +39,13 @@ export type Item = {
   parent: string | null;
   /** Values for the fields this item's type declares, keyed by field id. */
   fields: Record<string, Value>;
+  /**
+   * Where this item sits in the project's order (ADR-0013).
+   *
+   * Opaque: it sorts, and nothing may read anything else into it. The server
+   * mints it, and a client names neighbors rather than keys.
+   */
+  rank: string;
   version: number;
   created_at: string;
   updated_at: string;

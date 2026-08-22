@@ -59,6 +59,10 @@ export function useWorkspace() {
       },
       [change, layout]
     ),
+    showView: useCallback(
+      (view: Layout['view']) => change({ ...layout, view }),
+      [change, layout]
+    ),
     toggleInspector: useCallback(
       () =>
         change({

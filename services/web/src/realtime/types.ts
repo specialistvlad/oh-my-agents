@@ -52,6 +52,15 @@ export type Inbound =
       body: unknown;
     }
   | {
+      type: 'item.reorder';
+      id: string;
+      project: string;
+      item: string;
+      version: number;
+      idempotency: string;
+      body: unknown;
+    }
+  | {
       type: 'item.delete';
       id: string;
       project: string;

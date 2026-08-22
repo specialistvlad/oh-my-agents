@@ -38,6 +38,8 @@ const (
 	KindItemDelete = "item.delete"
 	// KindCommentAdd posts a comment on an item.
 	KindCommentAdd = "comment.add"
+	// KindItemReorder moves an item between two neighbors.
+	KindItemReorder = "item.reorder"
 )
 
 // Frame kinds the server sends.

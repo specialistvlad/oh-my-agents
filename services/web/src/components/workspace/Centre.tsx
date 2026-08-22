@@ -1,19 +1,21 @@
-import { PanelRight } from 'lucide-react';
+import { Columns3, List, PanelRight } from 'lucide-react';
 import type { ComponentProps } from 'react';
 
 import { ConnectionBadge } from '@/components/ConnectionBadge';
-import { CreateItem } from '@/components/CreateItem';
 import { IdentityBadge } from '@/components/IdentityBadge';
-import { ItemList } from '@/components/ItemList';
 import { ProjectAdmin } from '@/components/ProjectAdmin';
 import type { ProjectAdminProps } from '@/components/ProjectAdmin';
 import { Button } from '@/components/ui/button';
+import { CentreBody } from '@/components/workspace/CentreBody';
 import { TabStrip } from '@/components/workspace/TabStrip';
+import type { Drag } from '@/hooks/useBoardDrag';
 import type { Status } from '@/realtime/types';
+import type { Drop } from '@/tracker/board';
 import type { Item, Schema } from '@/tracker/types';
+import type { View } from '@/workspace/layout';
 import type { Tab } from '@/workspace/tabs';
 
-type Props = {
+export type CentreProps = {
   status: Status;
   tabs: Tab[];
   active: string | null;
@@ -35,16 +37,41 @@ type Props = {
   onCloseTab: (id: string) => void;
   onToggleInspector: () => void;
   identity: ComponentProps<typeof IdentityBadge>;
+  view: View;
+  onView: (view: View) => void;
+  /** Board drag state, shared between the card that starts it and the column
+   * that ends it. */
+  drag: Drag;
+  selected: string | null;
+  onSelect: (item: Item) => void;
+  onOpen: (item: Item) => void;
+  onDropCard: (item: Item, drop: Drop) => void;
 };
 
 /** The middle column: the tab strip, and whatever the active tab holds. */
-export function Centre(props: Props) {
+export function Centre(props: CentreProps) {
   return (
     <>
       <header className="flex items-center gap-3 border-b border-border px-4 py-2">
         <span className="text-sm font-semibold">oh-my-agents</span>
         <ConnectionBadge status={props.status} />
         <div className="ml-auto flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label="Board view"
+            aria-pressed={props.view === 'board'}
+            onClick={() => props.onView('board')}>
+            <Columns3 className="size-4" aria-hidden />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label="List view"
+            aria-pressed={props.view === 'list'}
+            onClick={() => props.onView('list')}>
+            <List className="size-4" aria-hidden />
+          </Button>
           <IdentityBadge {...props.identity} />
           <Button
             size="sm"
@@ -63,54 +90,8 @@ export function Centre(props: Props) {
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <ProjectAdmin {...props.admin} />
-        <Body {...props} />
+        <CentreBody {...props} />
       </div>
-    </>
-  );
-}
-
-function Body(props: Props) {
-  if (props.openIsGone) {
-    return (
-      <p className="text-sm text-danger">
-        This item has been deleted. Close the tab when you are done with it.
-      </p>
-    );
-  }
-  if (props.openItem) {
-    return (
-      <article>
-        <h1 className="mb-2 text-xl font-semibold">{props.openItem.title}</h1>
-        <p className="text-sm whitespace-pre-wrap text-muted-foreground">
-          {props.openItem.body || 'No description.'}
-        </p>
-      </article>
-    );
-  }
-  if (!props.hasProject) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Select a project in the objects panel.
-      </p>
-    );
-  }
-  return (
-    <>
-      <CreateItem
-        value={props.draft}
-        schema={props.schema}
-        busy={props.busy}
-        onChange={props.onDraft}
-        onSubmit={props.onCreate}
-      />
-      <ItemList
-        items={props.items}
-        schema={props.schema}
-        loaded={props.loaded}
-        busy={props.busy}
-        onMove={props.onMove}
-        onRemove={props.onRemove}
-      />
     </>
   );
 }

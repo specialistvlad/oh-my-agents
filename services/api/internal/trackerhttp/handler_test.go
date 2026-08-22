@@ -159,6 +159,39 @@ func TestAnUndeclaredTransitionIs400(t *testing.T) {
 	}
 }
 
+// Reordering states no version and returns no body: a drag is a position, not
+// a change to one (ADR-0013).
+func TestReorderTakesNoVersion(t *testing.T) {
+	h, _ := serve(t)
+	a := decodeItem(t, do(t, h, http.MethodPost, url("items"), newBug("a")))
+	b := decodeItem(t, do(t, h, http.MethodPost, url("items"), newBug("b")))
+
+	moved := url("items/" + string(b.ID) + "/position")
+	if code := do(t, h, http.MethodPost, moved, `{"before":"`+string(a.ID)+`"}`).Code; code != http.StatusNoContent {
+		t.Fatalf("POST position = %d, want 204", code)
+	}
+	items := decodeItems(t, do(t, h, http.MethodGet, url("items")+"?sort=rank", "").Body.Bytes())
+	if len(items) != 2 || items[0].ID != b.ID {
+		t.Errorf("order = %v, want b first", titles(items))
+	}
+
+	// And it did not cost a version, so an edit held since before the drag
+	// still applies.
+	one := url("items/"+string(b.ID)) + "?version=1"
+	if code := do(t, h, http.MethodPatch, one, `{"title":"edited"}`).Code; code != http.StatusOK {
+		t.Errorf("PATCH at the pre-drag version = %d, want 200", code)
+	}
+}
+
+func TestReorderRefusesAGhostNeighbour(t *testing.T) {
+	h, _ := serve(t)
+	a := decodeItem(t, do(t, h, http.MethodPost, url("items"), newBug("a")))
+	moved := url("items/" + string(a.ID) + "/position")
+	if code := do(t, h, http.MethodPost, moved, `{"after":"ghost"}`).Code; code != http.StatusNotFound {
+		t.Errorf("POST with a neighbor that does not exist = %d, want 404", code)
+	}
+}
+
 func TestAnUnknownProjectIs404(t *testing.T) {
 	h, _ := serve(t)
 	if code := do(t, h, http.MethodGet, "/projects/ghost-0000/tracker/items", "").Code; code != http.StatusNotFound {

@@ -101,6 +101,8 @@ func compareBy(a, b tracker.Item, by tracker.SortKey) int {
 		return a.UpdatedAt.Compare(b.UpdatedAt)
 	case tracker.SortTitle:
 		return strings.Compare(a.Title, b.Title)
+	case tracker.SortRank:
+		return strings.Compare(string(a.Rank), string(b.Rank))
 	case tracker.SortCreatedAt:
 		return a.CreatedAt.Compare(b.CreatedAt)
 	default:

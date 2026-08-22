@@ -26,6 +26,7 @@ func Run(t *testing.T, newStore Factory) {
 		"versioning": runVersioning,
 		"workflow":   runWorkflow,
 		"hierarchy":  runHierarchy,
+		"ordering":   runOrdering,
 		"resolution": runResolution,
 		"queries":    runQueries,
 		"comments":   runComments,

@@ -29,6 +29,7 @@ type Scopes interface {
 //	POST   …/tracker/items                     create
 //	GET    …/tracker/items/{item}              read one
 //	PATCH  …/tracker/items/{item}?version=N    update
+//	POST   …/tracker/items/{item}/position     move between two neighbors
 //	DELETE …/tracker/items/{item}?version=N    delete
 //	GET    …/tracker/items/{item}/comments     list, oldest first
 //	POST   …/tracker/items/{item}/comments     add
@@ -61,6 +62,7 @@ func Register(mux *http.ServeMux, scopes Scopes) {
 	handle("PATCH "+base+"items/{item}", updateItem)
 	handle("DELETE "+base+"items/{item}", deleteItem)
 
+	handle("POST "+base+"items/{item}/position", reorderItem)
 	handle("GET "+base+"items/{item}/comments", readComments)
 	handle("POST "+base+"items/{item}/comments", addComment)
 }

@@ -5,6 +5,7 @@ import { Inspector } from '@/components/workspace/Inspector';
 import { ObjectsPanel } from '@/components/workspace/ObjectsPanel';
 import { Workspace } from '@/components/workspace/Workspace';
 import { configuration } from '@/core/configuration';
+import { useBoardDrag } from '@/hooks/useBoardDrag';
 import { useCurrentProject } from '@/hooks/useCurrentProject';
 import { useIdentity } from '@/hooks/useIdentity';
 import { useProjectAdmin } from '@/hooks/useProjectAdmin';
@@ -48,6 +49,7 @@ function Index() {
   const admin = useProjectAdmin(client);
   const shell = useWorkspace();
   const me = useIdentity();
+  const drag = useBoardDrag();
 
   useTombstones(
     shell,
@@ -114,6 +116,13 @@ function Index() {
           onFocusTab={shell.focusTab}
           onCloseTab={shell.closeTab}
           onToggleInspector={shell.toggleInspector}
+          view={shell.layout.view}
+          onView={shell.showView}
+          drag={drag}
+          selected={shell.selected}
+          onSelect={(item) => shell.select(item.id)}
+          onOpen={(item) => shell.openTab({ id: item.id, title: item.title })}
+          onDropCard={(item, to) => void writer.drop(item.id, item.version, to)}
           identity={{
             actor: me.actor,
             editing: me.editing,

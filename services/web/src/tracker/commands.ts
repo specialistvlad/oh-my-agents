@@ -50,6 +50,30 @@ export function moveItem(
   }));
 }
 
+/**
+ * Moves an item between two neighbors.
+ *
+ * It states no version and expects no reply body: a drag is a position rather
+ * than a change to one, so there is nothing to compare against (ADR-0013).
+ */
+export function reorderItem(
+  client: RealtimeClient,
+  project: string,
+  item: string,
+  after: string | undefined,
+  before: string | undefined
+): Promise<void> {
+  return client.command((id, idempotency) => ({
+    type: 'item.reorder',
+    id,
+    project,
+    item,
+    version: 0,
+    idempotency,
+    body: { after, before },
+  }));
+}
+
 export function deleteItem(
   client: RealtimeClient,
   project: string,

@@ -1,17 +1,22 @@
 /** The panels the icon rail can show. Objects is first and the default. */
 export type PanelID = 'objects' | 'activity';
 
+/** What the centre shows when nothing is open. Local, like the widths. */
+export type View = 'board' | 'list';
+
 export type Layout = {
   /** Column widths in pixels. Zero means collapsed. */
   left: number;
   right: number;
   panel: PanelID;
+  view: View;
 };
 
 export const DEFAULT_LAYOUT: Layout = {
   left: 260,
   right: 300,
   panel: 'objects',
+  view: 'board',
 };
 
 /** Below this a column is unusable, so dragging past it collapses instead. */
@@ -57,6 +62,7 @@ export function loadLayout(): Layout {
       right:
         typeof parsed.right === 'number' ? parsed.right : DEFAULT_LAYOUT.right,
       panel: parsed.panel === 'activity' ? 'activity' : 'objects',
+      view: parsed.view === 'list' ? 'list' : 'board',
     };
   } catch {
     return DEFAULT_LAYOUT;

@@ -194,7 +194,7 @@ func handle(ctx context.Context, in Inbound, conn *realtime.Conn, opts Options) 
 		return mutate(ctx, in, opts.Settings, opts.Replays)
 	case KindProjectCreate, KindProjectRename, KindProjectRepoint, KindProjectRemove:
 		return mutateProject(ctx, in, opts.Projects, opts.Replays)
-	case KindItemCreate, KindItemUpdate, KindItemDelete, KindCommentAdd:
+	case KindItemCreate, KindItemUpdate, KindItemDelete, KindItemReorder, KindCommentAdd:
 		return mutateTracker(ctx, in, opts.Trackers, opts.Replays)
 	default:
 		return Outbound{Type: KindError, ID: in.ID, Error: "unknown frame type " + in.Type}

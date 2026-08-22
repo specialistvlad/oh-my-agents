@@ -43,6 +43,28 @@ func createItem(w http.ResponseWriter, r *http.Request, s tracker.Store) {
 	writeJSON(w, http.StatusCreated, created)
 }
 
+// position names the neighbors a card was dropped between. Both absent means
+// the start of an empty order.
+type position struct {
+	After  *tracker.ItemID `json:"after,omitempty"`
+	Before *tracker.ItemID `json:"before,omitempty"`
+}
+
+// reorderItem takes no version and returns no body (ADR-0013). A drag states a
+// position rather than a change to one, so there is nothing to compare against
+// and nothing the caller does not already know.
+func reorderItem(w http.ResponseWriter, r *http.Request, s tracker.Store) {
+	var at position
+	if r.ContentLength > 0 && !decode(w, r, &at) {
+		return
+	}
+	if err := s.Reorder(r.Context(), itemID(r), at.After, at.Before); err != nil {
+		writeErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func readItem(w http.ResponseWriter, r *http.Request, s tracker.Store) {
 	item, err := s.Item(r.Context(), itemID(r))
 	if err != nil {

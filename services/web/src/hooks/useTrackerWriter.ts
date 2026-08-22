@@ -1,7 +1,13 @@
 import { useCallback, useState } from 'react';
 
 import type { RealtimeClient } from '@/realtime/client';
-import { createItem, deleteItem, moveItem } from '@/tracker/commands';
+import type { Drop } from '@/tracker/board';
+import {
+  createItem,
+  deleteItem,
+  moveItem,
+  reorderItem,
+} from '@/tracker/commands';
 import { loadIdentity } from '@/tracker/identity';
 
 /**
@@ -49,6 +55,25 @@ export function useTrackerWriter(
     move: useCallback(
       (item: string, version: number, status: string) =>
         run((p) => moveItem(client, p, item, version, status, author())),
+      [client, run, author]
+    ),
+    /**
+     * Applies a drop: a transition, a move, or both.
+     *
+     * The transition goes first and the move only follows if it succeeded —
+     * a card that could not change status has not moved anywhere, and
+     * reordering it would leave the board showing something the server
+     * refused.
+     */
+    drop: useCallback(
+      (item: string, version: number, to: Drop) =>
+        run(async (p) => {
+          if (to.status)
+            await moveItem(client, p, item, version, to.status, author());
+          if (to.after || to.before) {
+            await reorderItem(client, p, item, to.after, to.before);
+          }
+        }),
       [client, run, author]
     ),
     remove: useCallback(

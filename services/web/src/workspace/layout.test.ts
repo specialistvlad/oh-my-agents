@@ -43,8 +43,13 @@ describe('remembering the layout', () => {
   });
 
   it('round trips', () => {
-    saveLayout({ left: 200, right: 0, panel: 'activity' });
-    expect(loadLayout()).toEqual({ left: 200, right: 0, panel: 'activity' });
+    saveLayout({ left: 200, right: 0, panel: 'activity', view: 'list' });
+    expect(loadLayout()).toEqual({
+      left: 200,
+      right: 0,
+      panel: 'activity',
+      view: 'list',
+    });
   });
 
   it('falls back to the default when nothing is stored', () => {
