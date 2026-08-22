@@ -9,19 +9,30 @@ what is deliberately refused. The decisions it points to are
 [ADR-0013](../adr/0013-item-ordering.md) through
 [ADR-0017](../adr/0017-boards-and-views.md), all Proposed.
 
-## Three defects, which are not decisions
+## Three defects, since fixed
 
-These are gaps in what is already built. Nothing here needs deciding, and
-everything below depends on them.
+These were gaps in what was already built rather than decisions, and everything
+below depended on them. Recorded because what they turned out to be is worth
+remembering.
 
-| Defect                                   | Effect                                                                                                                                                |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tracker.Mint` is called from nowhere    | ID minting exists as dead code. The first "add a status" control has nowhere to send a name.                                                          |
-| The browser sends no `ActorRef`          | Every write from the UI is unattributed, so the activity feed records an empty actor for everything a person does.                                    |
-| The frontend `Item` type has no `fields` | Custom field values round-trip through the API and the filesystem and are invisible to the app. ADR-0004's runtime schema is unreachable from the UI. |
+**Minting was written twice.** `tracker.Mint` was called from nowhere, which
+looked like dead code waiting for a schema editor. It was really a second copy
+of `projects.MintID` — same stem reduction, same length bound, same regexp, in
+two packages. Both now delegate to `internal/ids`, so there is one grammar for
+identifiers rather than two that would drift.
 
-The third is the one that matters most: configuring fields is pointless while
-nothing can display one.
+**The browser declared nobody.** Every write from the UI carried an empty
+actor, so the activity feed recorded nothing about who did what. The browser
+now claims a name, stored per device like the layout, and every tracker write
+carries it. It is a claim and not evidence (ADR-0012), and the control says so
+rather than dressing it up as an account.
+
+**The frontend could not see custom fields.** `Item` had no `fields` at all, so
+values round-tripped through the API and the filesystem and were invisible to
+the app — ADR-0004's runtime schema was unreachable from the UI. The inspector
+now shows every field a type declares, including the ones nobody has filled in,
+because a field that only appears once it has a value is a field nobody
+discovers.
 
 ## What real trackers have
 
