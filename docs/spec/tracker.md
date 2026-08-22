@@ -211,8 +211,7 @@ change while what it means does not.
 ## Next
 
 1. **Links and the event feed** over HTTP, when something needs them.
-2. **The ADR-0011 workspace shell** — three columns, an objects tree, an
-   inspector. There are now objects to put in it.
+2. **Agents** — the thing the tracker exists to be worked on by.
 
 ## Open questions
 

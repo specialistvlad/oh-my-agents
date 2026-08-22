@@ -1,7 +1,8 @@
 import { defineConfig } from 'vitest/config';
 
-// Pure-logic unit tests. The `node` environment is enough; a test that needs
-// a DOM opts into jsdom per-file with a `// @vitest-environment` pragma.
+// The `node` environment is the default, because most tests here are pure
+// logic. A test that needs a DOM opts in per-file with a
+// `// @vitest-environment jsdom` pragma — component tests do.
 // Path resolution mirrors vite.config.ts.
 export default defineConfig({
   resolve: {
@@ -9,6 +10,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
   },
 });

@@ -1,21 +1,20 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { ConfirmRemove } from '@/components/ConfirmRemove';
-import { ConnectionBadge } from '@/components/ConnectionBadge';
-import { CreateProject } from '@/components/CreateProject';
-import { ProjectList } from '@/components/ProjectList';
-import { RenameProject } from '@/components/RenameProject';
-import { TrackerSection } from '@/components/TrackerSection';
-import { Separator } from '@/components/ui/separator';
+import { Centre } from '@/components/workspace/Centre';
+import { Inspector } from '@/components/workspace/Inspector';
+import { ObjectsPanel } from '@/components/workspace/ObjectsPanel';
+import { Workspace } from '@/components/workspace/Workspace';
 import { configuration } from '@/core/configuration';
 import { useCurrentProject } from '@/hooks/useCurrentProject';
-import { useProjectWriter } from '@/hooks/useProjectWriter';
+import { useProjectAdmin } from '@/hooks/useProjectAdmin';
 import { useProjects } from '@/hooks/useProjects';
-import { useProjectsPage } from '@/hooks/useProjectsPage';
 import { useRealtime } from '@/hooks/useRealtime';
+import { useTombstones } from '@/hooks/useTombstones';
 import { useTracker } from '@/hooks/useTracker';
 import { useTrackerWriter } from '@/hooks/useTrackerWriter';
+import { useWorkspace } from '@/hooks/useWorkspace';
 import { PROJECTS_ROOM, projectRoom } from '@/projects/types';
+import { activeTab } from '@/workspace/tabs';
 
 export const Route = createFileRoute('/')({ component: Index });
 
@@ -32,109 +31,98 @@ function Index() {
     configuration.apiUrl,
     rooms
   );
-  const {
-    projects,
-    error: listError,
-    loaded,
-  } = useProjects(configuration.apiUrl, generation, events);
+  const { projects, loaded } = useProjects(
+    configuration.apiUrl,
+    generation,
+    events
+  );
   const current = useCurrentProject(projects, loaded);
-  const projectWriter = useProjectWriter(client);
   const tracker = useTracker(
     configuration.apiUrl,
     current.id,
     generation,
     events
   );
-  const items = useTrackerWriter(client, current.id);
-  const page = useProjectsPage();
+  const writer = useTrackerWriter(client, current.id);
+  const admin = useProjectAdmin(client);
+  const shell = useWorkspace();
 
-  const error =
-    projectWriter.error ?? items.error ?? tracker.error ?? listError;
-  const busy = projectWriter.busy || items.busy;
+  useTombstones(
+    shell,
+    shell.tabs.open.map((t) => t.id),
+    tracker.items,
+    tracker.loaded
+  );
+
+  const open = activeTab(shell.tabs);
+  const openItem = tracker.items.find((i) => i.id === open?.id) ?? null;
+  const selectedItem =
+    tracker.items.find((i) => i.id === shell.selected) ?? null;
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
-      <div className="mb-1 flex items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">oh-my-agents</h1>
-        <ConnectionBadge status={status} />
-      </div>
-      <p className="mb-6 text-sm text-muted-foreground">
-        One socket carries writes out and events back. State is fetched when the
-        rooms are joined; after that nothing here polls.
-      </p>
-
-      <CreateProject
-        value={page.draft}
-        busy={busy}
-        onChange={page.setDraft}
-        onSubmit={() => {
-          void projectWriter.create(page.draft).then(() => page.setDraft(''));
-        }}
-      />
-
-      {page.editing ? (
-        <RenameProject
-          project={page.editing}
-          value={page.editName}
-          busy={busy}
-          onChange={page.setEditName}
-          onSubmit={() => {
-            const target = page.editing;
-            if (target) {
-              void projectWriter
-                .rename(target.id, page.editName)
-                .then(page.cancelRename);
-            }
-          }}
-          onCancel={page.cancelRename}
+    <Workspace
+      layout={shell.layout}
+      onPanel={shell.selectPanel}
+      onResizeLeft={shell.resizeLeft}
+      onResizeRight={shell.resizeRight}
+      left={
+        <ObjectsPanel
+          projects={projects}
+          currentProject={current.id}
+          items={tracker.items}
+          schema={tracker.schema}
+          selected={shell.selected}
+          draft={admin.draft}
+          busy={admin.busy}
+          onDraft={admin.setDraft}
+          onCreateProject={admin.create}
+          onRemoveProject={admin.startRemove}
+          onRenameProject={admin.startRename}
+          onSelectProject={(p) =>
+            current.select(current.id === p.id ? null : p.id)
+          }
+          onSelectItem={(item) => shell.select(item.id)}
+          onOpenItem={(item) =>
+            shell.openTab({ id: item.id, title: item.title })
+          }
         />
-      ) : null}
-
-      {page.confirming ? (
-        <ConfirmRemove
-          project={page.confirming}
-          busy={busy}
-          onConfirm={() => {
-            const target = page.confirming;
-            if (target)
-              void projectWriter.remove(target.id).then(page.cancelRemove);
+      }
+      centre={
+        <Centre
+          status={status}
+          tabs={shell.tabs.open}
+          active={shell.tabs.active}
+          openItem={openItem}
+          openIsGone={Boolean(open?.gone)}
+          items={tracker.items}
+          schema={tracker.schema}
+          loaded={tracker.loaded}
+          busy={writer.busy}
+          admin={admin.dialog}
+          draft={shell.draft}
+          hasProject={Boolean(current.project)}
+          onDraft={shell.setDraft}
+          onCreate={(type) => {
+            void writer
+              .create(type, shell.draft)
+              .then(() => shell.setDraft(''));
           }}
-          onCancel={page.cancelRemove}
+          onMove={(item, next) => void writer.move(item.id, item.version, next)}
+          onRemove={(item) => void writer.remove(item.id, item.version)}
+          onFocusTab={shell.focusTab}
+          onCloseTab={shell.closeTab}
+          onToggleInspector={shell.toggleInspector}
         />
-      ) : null}
-
-      {error ? <p className="mb-4 text-sm text-danger">{error}</p> : null}
-
-      <ProjectList
-        projects={projects}
-        selectedID={current.id}
-        loaded={loaded}
-        busy={busy}
-        onSelect={(p) => current.select(current.id === p.id ? null : p.id)}
-        onRename={page.startRename}
-        onRemove={page.startRemove}
-      />
-
-      <Separator className="my-6" />
-
-      <TrackerSection
-        project={current.project}
-        schema={tracker.schema}
-        items={tracker.items}
-        loaded={tracker.loaded}
-        busy={busy}
-        draft={page.itemDraft}
-        onDraft={page.setItemDraft}
-        onCreate={(type) => {
-          void items
-            .create(type, page.itemDraft)
-            .then(() => page.setItemDraft(''));
-        }}
-        onMove={(item, status) =>
-          void items.move(item.id, item.version, status)
-        }
-        onRemove={(item) => void items.remove(item.id, item.version)}
-      />
-    </main>
+      }
+      right={
+        <Inspector
+          item={selectedItem}
+          missing={Boolean(shell.selected) && tracker.loaded && !selectedItem}
+          schema={tracker.schema}
+          busy={writer.busy}
+          onMove={(item, next) => void writer.move(item.id, item.version, next)}
+        />
+      }
+    />
   );
 }
