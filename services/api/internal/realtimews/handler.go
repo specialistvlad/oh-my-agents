@@ -75,9 +75,8 @@ func (o Options) pingTimeout() time.Duration {
 // New returns a handler that upgrades to a WebSocket and serves one hub
 // connection per socket.
 //
-// There is no authentication. A client may join any room it names, so this
-// must not be reachable from an untrusted network until auth exists — the
-// prerequisite ADR-0008 records.
+// There is no authentication, by design (ADR-0012). A client may join any
+// room it names: rooms are addressing, not access control.
 func New(h Hub, opts Options) http.Handler {
 	if opts.Replays == nil {
 		opts.Replays = idempotency.New(idempotency.Options{})

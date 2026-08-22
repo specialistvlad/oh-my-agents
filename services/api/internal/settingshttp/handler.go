@@ -50,8 +50,8 @@ type Store interface {
 // path segment in the middle: stripping a prefix to mount this would throw
 // away the very part it needs.
 //
-// There is no authentication. Anything reachable here can read and write any
-// project's settings, so this must not be exposed beyond a trusted network.
+// There is no authentication, by design (ADR-0012): anything that can reach
+// this can read and write any project's settings.
 func Register(mux *http.ServeMux, scopes Scopes) {
 	const base = "/projects/{project}/settings/"
 

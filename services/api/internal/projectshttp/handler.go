@@ -46,8 +46,8 @@ type change struct {
 // Absolute patterns, so that per-project resources can register alongside
 // these without either package owning the other's URLs.
 //
-// There is no authentication, so this must not be reachable from an untrusted
-// network — the more so here, because DELETE removes a directory.
+// There is no authentication, by design (ADR-0012). That matters most at
+// DELETE, which removes the project's root directory and everything in it.
 func Register(mux *http.ServeMux, s Store) {
 	mux.HandleFunc("GET /projects/{$}", func(w http.ResponseWriter, r *http.Request) {
 		all, err := s.List(r.Context())

@@ -16,3 +16,4 @@ longer holds gets superseded by a later ADR rather than edited.
 | [0009](0009-projects-scope-everything.md)              | Everything is scoped to a project and addressed by a minted ID                         |
 | [0010](0010-project-lifecycle.md)                      | Projects are created, renamed, re-pointed and removed, and every client sees it        |
 | [0011](0011-three-column-workspace.md)                 | The UI is a three-column workspace built around state that arrives                     |
+| [0012](0012-no-authentication.md)                      | There is no authentication, by design                                                  |

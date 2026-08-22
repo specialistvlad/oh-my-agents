@@ -154,7 +154,8 @@ translating at their own boundary and is the only place the payload is loose.
 1. **Wire it to projects** at `<project.Root>/tracker/`, with a store per
    project handed out by `scopes` the way settings already are.
 2. **HTTP and socket surfaces**, under `/projects/{project}/tracker/`.
-3. **Authentication**, before either is reachable from anywhere untrusted.
+3. **A frontend** showing a project's items, fed by the events already
+   reaching its room.
 
 ## Open questions
 

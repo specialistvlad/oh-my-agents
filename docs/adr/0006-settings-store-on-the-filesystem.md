@@ -1,6 +1,7 @@
 # ADR-0006: Settings are a filesystem key/value store rooted at `.oma`
 
-- Status: Accepted; the default location is superseded by ADR-0007
+- Status: Accepted; the default location is superseded by ADR-0007, and the
+  auth framing by ADR-0012
 - Date: 2026-08-21
 - Scope: `services/api/internal/settings`
 - Relates to: ADR-0002, ADR-0003, ADR-0005

@@ -87,7 +87,8 @@ key grammar. Neither layer alone is sufficient, and both are tested — includin
 one test that checks the filesystem directly to prove no write lands outside
 the root.
 
-**There is no authentication.** See ADR-0006.
+**There is no authentication**, by design (ADR-0012). The network is the only
+boundary.
 
 ## Known limits
 
