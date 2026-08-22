@@ -30,6 +30,14 @@ const (
 	KindProjectRepoint = "project.repoint"
 	// KindProjectRemove removes a project and deletes its root directory.
 	KindProjectRemove = "project.remove"
+	// KindItemCreate creates a tracker item.
+	KindItemCreate = "item.create"
+	// KindItemUpdate edits one, stating the version it expects.
+	KindItemUpdate = "item.update"
+	// KindItemDelete removes one, stating the version it expects.
+	KindItemDelete = "item.delete"
+	// KindCommentAdd posts a comment on an item.
+	KindCommentAdd = "comment.add"
 )
 
 // Frame kinds the server sends.
@@ -70,6 +78,13 @@ type Inbound struct {
 	Project string `json:"project,omitempty"`
 	Name    string `json:"name,omitempty"`
 	Root    string `json:"root,omitempty"`
+
+	// Item, Version and Body carry a tracker mutation. Version is the
+	// compare-and-swap version an edit expects to replace, and is required
+	// on anything that changes an existing item.
+	Item    string          `json:"item,omitempty"`
+	Version int64           `json:"version,omitempty"`
+	Body    json.RawMessage `json:"body,omitempty"`
 
 	// Idempotency makes a command safe to send twice.
 	//

@@ -149,13 +149,54 @@ translating at their own boundary and is the only place the payload is loose.
 - **Deletion is an event** (`EventItemDeleted`). A reader that never sees one
   cannot distinguish a deleted item from one it has not heard about.
 
+## Surface
+
+Both edges call the same store, so neither owns a rule the other lacks, and a
+failure carries the same status either way.
+
+| Method   | Path                                  |
+| -------- | ------------------------------------- |
+| `GET`    | `…/tracker/schema`                    |
+| `PUT`    | `…/tracker/schema/{type}`             |
+| `DELETE` | `…/tracker/schema/{type}`             |
+| `GET`    | `…/tracker/items` — filtered by query |
+| `POST`   | `…/tracker/items`                     |
+| `GET`    | `…/tracker/items/{item}`              |
+| `PATCH`  | `…/tracker/items/{item}?version=N`    |
+| `DELETE` | `…/tracker/items/{item}?version=N`    |
+| `GET`    | `…/tracker/items/{item}/comments`     |
+| `POST`   | `…/tracker/items/{item}/comments`     |
+
+All under `/projects/{project}/`. The socket carries `item.create`,
+`item.update`, `item.delete` and `comment.add`.
+
+A write states the version it expects as `?version=N`. A query parameter
+rather than `If-Match`: it is legible in a log line and a `curl`, and a version
+is a counter rather than an opaque validator. Absent is refused rather than
+defaulted, because a write that does not say what it expects is the overwrite
+compare-and-swap exists to prevent.
+
+Failures map the same way on both edges. A state conflict — a stale version,
+unresolved descendants, a cycle, a parent with children — is `409`: the call
+was well formed and the tracker's current state is what refuses it. Something
+the schema or workflow does not allow is `400`.
+
+Query parameters are `type`, `status`, `category`, `parent`, `subtree`,
+`roots`, `updated_since`, `sort`, `desc`, `limit` and `cursor`, repeated to
+mean "any of these". Custom-field matches are deliberately absent: a field
+match needs a typed value, and there is no honest way to read one from a
+string without knowing the field's kind.
+
+A new project's tracker is seeded with one **Task** type — to do, doing, done,
+dropped. Without it a project has a tracker that can hold nothing, since an
+item needs a type. Seeding runs only on an empty schema, so a deleted starter
+type stays deleted.
+
 ## Next
 
-1. **Wire it to projects** at `<project.Root>/tracker/`, with a store per
-   project handed out by `scopes` the way settings already are.
-2. **HTTP and socket surfaces**, under `/projects/{project}/tracker/`.
-3. **A frontend** showing a project's items, fed by the events already
+1. **A frontend** showing a project's items, fed by the events already
    reaching its room.
+2. **Links and the event feed** over HTTP, when something needs them.
 
 ## Open questions
 

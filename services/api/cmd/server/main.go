@@ -96,6 +96,7 @@ func run() int {
 				Origins:  app.AllowedOrigins,
 				Settings: scoped,
 				Projects: registry,
+				Trackers: scoped,
 			})},
 		},
 	})

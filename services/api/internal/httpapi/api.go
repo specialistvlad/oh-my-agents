@@ -12,12 +12,21 @@ import (
 
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/projectshttp"
 	"github.com/specialistvlad/oh-my-agents/services/api/internal/settingshttp"
+	"github.com/specialistvlad/oh-my-agents/services/api/internal/trackerhttp"
 )
+
+// Scopes resolves a project into whatever is stored inside it. One interface
+// satisfies every per-project package, so the surface takes one dependency
+// rather than one per resource.
+type Scopes interface {
+	settingshttp.Scopes
+	trackerhttp.Scopes
+}
 
 // Deps are the stores the surface is built over.
 type Deps struct {
 	Projects projectshttp.Store
-	Scopes   settingshttp.Scopes
+	Scopes   Scopes
 }
 
 // New returns the API handler.
@@ -25,5 +34,6 @@ func New(d Deps) http.Handler {
 	mux := http.NewServeMux()
 	projectshttp.Register(mux, d.Projects)
 	settingshttp.Register(mux, d.Scopes)
+	trackerhttp.Register(mux, d.Scopes)
 	return mux
 }

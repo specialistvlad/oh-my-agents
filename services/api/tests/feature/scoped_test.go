@@ -53,7 +53,8 @@ func server(t *testing.T) (string, *bus.Memory) {
 		Mounts: []httpserver.Mount{
 			{Prefix: "/", Handler: httpapi.New(httpapi.Deps{Projects: registry, Scopes: scoped})},
 			{Prefix: "/ws", Handler: realtimews.New(hub, realtimews.Options{
-				Origins: []string{"*"}, Settings: scoped, Projects: registry,
+				Origins: []string{"*"}, Settings: scoped,
+				Projects: registry, Trackers: scoped,
 			})},
 		},
 	})

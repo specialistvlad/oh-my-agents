@@ -50,6 +50,7 @@ Passing it is not the same as being simple.
 | `internal/tracker`        | Task tracker domain model, ports and validation.     |
 | `…/tracker/store`         | The tracker's rules, over a persistence port.        |
 | `…/tracker/fs`            | File persistence for that store.                     |
+| `internal/trackerhttp`    | A project's tracker over HTTP.                       |
 | `…/tracker/memory`        | In-memory store. Enforces every invariant itself.    |
 | `…/tracker/trackertest`   | Conformance suite every store must pass.             |
 | `…/settings/settingstest` | The same, for settings stores.                       |

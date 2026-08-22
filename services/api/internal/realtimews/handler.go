@@ -53,6 +53,10 @@ type Options struct {
 	// no project changes.
 	Projects Projects
 
+	// Trackers resolves a project into its tracker. Nil serves a socket
+	// that accepts no tracker changes.
+	Trackers Trackers
+
 	// Replays remembers commands so a reconnecting client can safely send
 	// again what it never saw acknowledged. Nil gets a default.
 	Replays *idempotency.Keys
@@ -190,6 +194,8 @@ func handle(ctx context.Context, in Inbound, conn *realtime.Conn, opts Options) 
 		return mutate(ctx, in, opts.Settings, opts.Replays)
 	case KindProjectCreate, KindProjectRename, KindProjectRepoint, KindProjectRemove:
 		return mutateProject(ctx, in, opts.Projects, opts.Replays)
+	case KindItemCreate, KindItemUpdate, KindItemDelete, KindCommentAdd:
+		return mutateTracker(ctx, in, opts.Trackers, opts.Replays)
 	default:
 		return Outbound{Type: KindError, ID: in.ID, Error: "unknown frame type " + in.Type}
 	}

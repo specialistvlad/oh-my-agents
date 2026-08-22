@@ -51,19 +51,23 @@ type NewItem struct {
 // Patch is a partial update. A nil pointer means "leave alone", which is
 // what separates "clear the title" from "do not touch the title".
 type Patch struct {
-	Title  *string
-	Body   *string
-	Status *StatusID
+	Title  *string   `json:"title,omitempty"`
+	Body   *string   `json:"body,omitempty"`
+	Status *StatusID `json:"status,omitempty"`
 
 	// Parent reparents the item, moving its whole subtree with it.
 	// ClearParent promotes it to a root instead, and the two are mutually
 	// exclusive.
-	Parent      *ItemID
-	ClearParent bool
+	Parent      *ItemID `json:"parent,omitempty"`
+	ClearParent bool    `json:"clear_parent,omitempty"`
 
 	// Fields sets the named fields. A nil entry clears that field; keys
 	// absent from the map are left as they are.
-	Fields map[FieldID]*Value
+	//
+	// A JSON null is exactly that nil, which is how "clear this field"
+	// survives the wire — omitting the key means "leave it alone", and the
+	// two must stay distinguishable.
+	Fields map[FieldID]*Value `json:"fields,omitempty"`
 
-	Author ActorRef
+	Author ActorRef `json:"author,omitzero"`
 }
