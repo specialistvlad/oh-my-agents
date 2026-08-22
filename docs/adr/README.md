@@ -14,3 +14,4 @@ longer holds gets superseded by a later ADR rather than edited.
 | [0007](0007-workspace-defaults-to-the-user-home.md)    | The `.oma` workspace lives in the user's home, and stays separate from `.env`          |
 | [0008](0008-realtime-communication-over-websockets.md) | Clients talk over one bidirectional WebSocket, scoped by rooms _(superseded in part)_  |
 | [0009](0009-projects-scope-everything.md)              | Everything is scoped to a project and addressed by a minted ID                         |
+| [0010](0010-project-lifecycle.md)                      | Projects are created, renamed, re-pointed and removed, and every client sees it        |
